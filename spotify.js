@@ -127,7 +127,12 @@
  function selectAndRemember(list){
   const requested=$('spotifyDeviceSelect')?.value||'';
   const saved=prefs.get('device-id');
-  const device=list.find(d=>d.id===requested)||list.find(d=>d.id===saved)||list.find(d=>d.is_active)||list[0]||null;
+  const manual=prefs.get('device-preference')==='manual';
+  // Prefer the current active Spotify Connect player over stale saved IDs;
+  // honor an explicit manual device choice if it is still available.
+  const active=list.find(d=>d.is_active);
+  const device=(manual&&list.find(d=>d.id===requested||d.id===saved))
+   ||active||list.find(d=>d.id===requested)||list.find(d=>d.id===saved)||list[0]||null;
   rememberDevice(device);
   return device;
  }
@@ -234,6 +239,11 @@
    notify(availableNow
      ?'✅ Wybrano i zapamiętano „'+chosen.name+'”. Teraz używaj START + Spotify. Jeśli iPhone przestanie odpowiadać, gra ponowi próbę połączenia.'
      :'⚠️ Zapamiętano „'+chosen.name+'”, ale Spotify nie potwierdziło, że jest aktywne. Spróbuj START; przy HTTP 404 włącz Spotify na telefonie ponownie.');
+   if(availableNow){
+    const settings=$('spotifyDeviceTools'),summary=$('spotifySetupSummary');
+    if(settings)settings.open=false;
+    if(summary)summary.textContent='✓ Spotify — '+chosen.name+' · ustawienia';
+   }
   }catch(e){notify('❌ Przygotowanie Spotify: '+e.message);}
   finally{if(button)button.disabled=false;}
  }
@@ -293,7 +303,7 @@
  }
  function disconnect(){
   ['access-token','expiry','refresh-token','scopes','verifier','state'].forEach(k=>store.del(k));['oauth-state','oauth-verifier','oauth-since'].forEach(k=>prefs.del(k));
-  prefs.del('device-id');prefs.del('device-name');trackCache.clear();
+  prefs.del('device-id');prefs.del('device-name');prefs.del('device-preference');trackCache.clear();
   startedOnSpotify=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
  }
  function setManualRound(b){manual=!!b;}
@@ -341,7 +351,7 @@
  $('spotifyDisconnect')?.addEventListener('click',disconnect);
  $('spotifyActivateOnce')?.addEventListener('click',activateDevice);
  $('spotifyRunDiagnostics')?.addEventListener('click',()=>diagnose(false));
- $('spotifyDeviceSelect')?.addEventListener('change',()=>{const el=$('spotifyDeviceSelect');if(el&&el.value){prefs.set('device-id',el.value);prefs.set('device-name',el.selectedOptions?.[0]?.textContent||'Spotify');const note=$('spotifyActivationStatus');if(note)note.textContent='✅ Wybrane urządzenie: '+(el.selectedOptions?.[0]?.textContent||'Spotify')+'. Możesz nacisnąć START.';}});
+ $('spotifyDeviceSelect')?.addEventListener('change',()=>{const el=$('spotifyDeviceSelect');if(el&&el.value){prefs.set('device-id',el.value);prefs.set('device-name',el.selectedOptions?.[0]?.textContent||'Spotify');prefs.set('device-preference','manual');const note=$('spotifyActivationStatus');if(note)note.textContent='✅ Wybrane urządzenie: '+(el.selectedOptions?.[0]?.textContent||'Spotify')+'. Możesz nacisnąć START.';}});
  $('testSound')?.addEventListener('click',()=>{
   window.FilmsterAudio.test();
   if($('audioStatus'))$('audioStatus').textContent='🔊 To tylko test. Podczas rund odliczanie jest wizualne, aby nie zatrzymywać muzyki Spotify na iPhonie.';
