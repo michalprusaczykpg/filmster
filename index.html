@@ -225,32 +225,64 @@ function tick(){if(!state||state.phase!=='playing'||state.seconds===0)return;rem
 function startTimer(){if(!state)return;state.phase='playing';show('overlay',false);show('countdownStart',false);show('pauseTimer',state.seconds>0);$('clockLabel').textContent='Czas na ułożenie utworu na osi czasu';if(state.seconds>0){deadline=Date.now()+remainingMs;timer=setInterval(tick,130);}renderTimeline();renderClock();}
 async function countdown(){
  if(!state||state.phase!=='ready')return;
- // iOS Safari/WebKit may pause Spotify when FILMSTER opens Web Audio.
- // Use a visual countdown only and release a test AudioContext before playback.
- const sound=window.FilmsterAudio;
- try{if(sound&&sound.release)await sound.release();}catch(_){}
- $('countdownStart').disabled=true;
  const spotify=window.FilmsterSpotify;
- if(getSpotifyMode()==='premium'&&(!spotify||!spotify.isConnected())&&!(spotify&&spotify.isManualRound())){
-   $('spotifyFeedback').textContent='⚠️ Nie połączono konta Spotify z FILMSTER. START nie może uruchomić piosenki — przełącz na tryb DJ, włącz utwór ręcznie i dopiero rozpocznij rundę.';
+ const premium=getSpotifyMode()==='premium';
+ const auto=premium&&spotify&&spotify.isConnected()&&!spotify.isManualRound();
+ if(premium&&!auto&&!(spotify&&spotify.isManualRound())){
+   $('spotifyFeedback').textContent='⚠️ Nie połączono Spotify Premium. Połącz konto lub wybierz ręczny tryb DJ, aby uruchomić odliczanie.';
    show('spotifyConnectWarning',true);
-   $('countdownStart').disabled=false;
    return;
  }
- if(getSpotifyMode()==='premium'&&spotify&&spotify.isConnected()&&!spotify.isManualRound()){
-   $('spotifyFeedback').textContent='⏳ Wyszukuję i uruchamiam piosenkę w Spotify…';
-   try{const deviceName=await spotify.play(state.deck[state.index]);$('spotifyFeedback').textContent='✅ Spotify przyjęło START dla urządzenia: '+deviceName+'. Jeśli nie słychać utworu, sprawdź odtwarzanie w Spotify (API nie potwierdza rzeczywistego dźwięku).';}
-   catch(error){
-     $('spotifyFeedback').textContent='❌ START + Spotify: '+(error.message||'Błąd API Spotify')+' Sprawdź komunikat i listę urządzeń, potem spróbuj ponownie lub włącz utwór ręcznie.';
-     $('countdownStart').disabled=false;return;
-   }
+ // No AudioContext/3-2-1 beeps: iOS may interrupt Spotify when browser audio starts or closes.
+ // Never send a Spotify play/pause command before the visual countdown finishes.
+ const current=state, round=current.index, song=current.deck[round];
+ current.phase='countdown';
+ $('countdownStart').disabled=true;
+ $('spotifyFeedback').textContent=auto
+  ?'⏳ Odliczam 3–2–1. Nowa piosenka w Spotify zostanie uruchomiona dopiero na START!'
+  :'🎧 Ręczny DJ: muzyka jest już włączona w Spotify. Odliczam 3–2–1.';
+ show('overlay',true);
+ $('overlayNumber').textContent='3';
+ const isCurrent=()=>state===current&&current.phase==='countdown'&&current.index===round;
+ for(let t=1;t<=2;t++){
+  countdownHandles.push(setTimeout(()=>{
+   if(isCurrent())$('overlayNumber').textContent=String(3-t);
+  },t*1000));
  }
- if(!state||state.phase!=='ready')return;
- state.phase='countdown';show('overlay',true);$('overlayNumber').textContent='3';
- // Intentional silence: browser beeps interrupt Spotify audio focus on iPhone.
- for(let t=1;t<=2;t++){countdownHandles.push(setTimeout(()=>{$('overlayNumber').textContent=String(3-t);},t*1000));}
- countdownHandles.push(setTimeout(()=>{$('overlayNumber').textContent='START!';startTimer();},3000));
+ countdownHandles.push(setTimeout(async()=>{
+  if(!isCurrent())return;
+  $('overlayNumber').textContent=auto?'♫':'START!';
+  if(auto){
+   $('spotifyFeedback').textContent='⏳ START! Wysyłam piosenkę do Spotify i sprawdzam odtwarzanie…';
+   try{
+    const outcome=await spotify.play(song);
+    if(!isCurrent())return;
+    if(!outcome.verified){
+     $('spotifyFeedback').textContent='⚠️ '+(outcome.message||'Spotify nie potwierdziło rozpoczęcia utworu.')+' Czas nie został uruchomiony. Spróbuj ponownie albo wybierz tryb ręczny DJ.';
+     current.phase='ready';
+     show('overlay',false);
+     $('countdownStart').disabled=false;
+     refreshSpotifyRoundNoteLabel();
+     return;
+    }
+    $('spotifyFeedback').textContent='✅ Spotify potwierdziło, że wylosowany utwór gra na: '+outcome.device+'. Odpowiadaj na osi czasu!';
+   }catch(error){
+    if(!isCurrent())return;
+    $('spotifyFeedback').textContent='❌ START + Spotify: '+(error.message||'Błąd odtwarzania Spotify')+' Możesz ponowić START lub otworzyć utwór ręcznie.';
+    current.phase='ready';
+    show('overlay',false);
+    $('countdownStart').disabled=false;
+    return;
+   }
+  }
+  if(isCurrent())startTimer();
+ },3000));
 }
+function refreshSpotifyRoundNoteLabel(){
+ const auto=getSpotifyMode()==='premium'&&window.FilmsterSpotify&&window.FilmsterSpotify.isConnected()&&!window.FilmsterSpotify.isManualRound();
+ $('countdownStart').textContent=auto?'▶ 3 · 2 · 1 · START + Spotify':'▶ 3 · 2 · 1 · START — tylko czas';
+}
+
 function pauseTimer(){if(!state||state.seconds===0)return;if(state.phase==='playing'){remainingMs=Math.max(0,deadline-Date.now());clearInterval(timer);timer=null;state.phase='paused';$('pauseTimer').textContent='▶ Wznów';$('clockLabel').textContent='Pauza';}else if(state.phase==='paused'){state.phase='playing';deadline=Date.now()+remainingMs;timer=setInterval(tick,130);$('pauseTimer').textContent='⏸ Pauza';$('clockLabel').textContent='Czas na ułożenie utworu na osi czasu';}renderTimeline();renderClock();}
 function activePlayer(){return state.players[state.index%state.players.length];}
 function songLabel(song){return song.pack==='film'?(song.movie||song.title):song.title;}
@@ -362,4 +394,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=18"></script></body></html>
+</script><script src="./spotify.js?v=19"></script></body></html>
