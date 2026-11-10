@@ -189,11 +189,14 @@
     }
     select.value=chosen.id;select.disabled=false;
    }
-   if(!chosen.is_active && chosen.id!=='__active__'){
-     try{await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[chosen.id],play:true})});await nap(500);}
+   let availableNow=chosen.is_active||chosen.id==='__active__';
+   if(!availableNow){
+     try{await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[chosen.id],play:true})});await nap(500);availableNow=true;}
      catch(e){if(e.status!==404)throw e;}
    }
-   notify('✅ Wybrano i zapamiętano „'+chosen.name+'”. Od teraz używaj START + Spotify. Gdy iPhone zniknie z Spotify Connect, FILMSTER spróbuje odzyskać połączenie.');
+   notify(availableNow
+     ?'✅ Wybrano i zapamiętano „'+chosen.name+'”. Teraz używaj START + Spotify. Jeśli iPhone przestanie odpowiadać, gra ponowi próbę połączenia.'
+     :'⚠️ Zapamiętano „'+chosen.name+'”, ale Spotify nie potwierdziło, że jest aktywne. Spróbuj START; przy HTTP 404 włącz Spotify na telefonie ponownie.');
   }catch(e){notify('❌ Przygotowanie Spotify: '+e.message);}
   finally{if(button)button.disabled=false;}
  }
