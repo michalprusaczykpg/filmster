@@ -161,22 +161,41 @@
   throw new Error('Spotify HTTP 404: urządzenie iPhone przestało odpowiadać po przełączeniu do FILMSTER. Wybrany odtwarzacz zapamiętałem, ale Spotify nie daje teraz sterowania. Otwórz Spotify, włącz piosenkę i wróć do gry albo wybierz ręczny tryb DJ. '+(lastError?.message||''));
  }
  async function activateDevice(){
-  const report=$('spotifyDiagnostics');
-  const notify=msg=>{if(report)report.textContent=msg;status(msg);};
-  if(!isConnected()){notify('❌ Najpierw połącz konto Spotify Premium.');return;}
-  notify('⏳ Zapamiętuję odtwarzacz Spotify…');
+  const report=$('spotifyDiagnostics'), visible=$('spotifyActivationStatus');
+  const notify=msg=>{if(report)report.textContent=msg;if(visible)visible.textContent=msg;};
+  if(!isConnected()){notify('❌ Konto Spotify nie jest połączone. Wróć do ustawień i połącz Premium.');return;}
+  notify('⏳ Szukam i zapisuję odtwarzacz Spotify…');
+  const button=$('spotifyActivateOnce');
+  if(button)button.disabled=true;
   try{
    const {list}=await playbackDevices();
-   if(!list.length){notify('⚠️ Spotify nie udostępnia teraz urządzenia. Włącz dowolny utwór w aplikacji Spotify i wróć do FILMSTER.');return;}
-   const selected=selectAndRemember(list);
-   if(!selected){notify('⚠️ Nie wybrano urządzenia Spotify.');return;}
-   if(!selected.is_active&&selected.id!=='__active__'){
-    await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[selected.id],play:true})});
-    await nap(550);
+   const saved=prefs.get('device-id');
+   if(!list.length){
+    notify(saved
+      ?'⚠️ Zapamiętany odtwarzacz „'+(prefs.get('device-name')||'Spotify')+'” jest obecnie niewidoczny. Możesz spróbować START — FILMSTER ponowi połączenie automatycznie. Jeśli wystąpi HTTP 404, otwórz Spotify i włącz utwór.'
+      :'⚠️ Spotify nie pokazuje teraz żadnego odtwarzacza. Włącz dowolną piosenkę w aplikacji Spotify i wróć do FILMSTER. Gdy nadal nie widać urządzenia, START spróbuje uruchomić muzykę na aktywnym urządzeniu bez jego ID.');
+    return;
    }
-   notify('✅ Odtwarzacz „'+selected.name+'” zapamiętany na tym urządzeniu. Teraz możesz naciskać START w kolejnych rundach. Jeśli iPhone się uśpi lub Spotify go rozłączy, może być konieczne ponowne uruchomienie Spotify.');
-   await diagnose(false);
-  }catch(e){notify('❌ Nie udało się aktywować: '+e.message);}
+   const select=$('spotifyDeviceSelect'), preferred=select?.value||prefs.get('device-id');
+   const chosen=list.find(d=>d.id===preferred)||list.find(d=>d.is_active)||list[0];
+   rememberDevice(chosen);
+   if(select){
+    select.replaceChildren();
+    for(const d of list){
+      const opt=document.createElement('option');
+      opt.value=d.id;
+      opt.textContent=(d.is_active?'▶ ':'')+d.name+' ('+d.type+')';
+      select.appendChild(opt);
+    }
+    select.value=chosen.id;select.disabled=false;
+   }
+   if(!chosen.is_active && chosen.id!=='__active__'){
+     try{await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[chosen.id],play:true})});await nap(500);}
+     catch(e){if(e.status!==404)throw e;}
+   }
+   notify('✅ Wybrano i zapamiętano „'+chosen.name+'”. Od teraz używaj START + Spotify. Gdy iPhone zniknie z Spotify Connect, FILMSTER spróbuje odzyskać połączenie.');
+  }catch(e){notify('❌ Przygotowanie Spotify: '+e.message);}
+  finally{if(button)button.disabled=false;}
  }
 
  async function diagnose(writeFeedback=true){
@@ -269,15 +288,16 @@
  function updatePanel(){
   if($('spotifyRedirectUri'))$('spotifyRedirectUri').textContent=redirectUri();
   if($('spotifyClientId'))$('spotifyClientId').value=prefs.get('client-id');
-  if(isConnected())status('🟡 Sesja Spotify zapisana. Sprawdzam, czy konto ma dostęp do Spotify API…');
+  if(isConnected()){
+   status('✅ Konto Spotify zalogowane do FILMSTER.');
+   const saved=prefs.get('device-name'), note=$('spotifyActivationStatus');
+   if(note&&saved)note.textContent='🎧 Poprzednio zapamiętane urządzenie: '+saved+'. Naciśnij START; przygotowanie Spotify jest potrzebne tylko gdy urządzenie przestanie działać.';
+  }
  }
  $('spotifyConnect')?.addEventListener('click',()=>authorize().catch(e=>status(e.message)));
  $('spotifyDisconnect')?.addEventListener('click',disconnect);
- $('spotifyTestConnection')?.addEventListener('click',()=>diagnose());
- $('spotifyCheckGame')?.addEventListener('click',()=>diagnose());
  $('spotifyActivateOnce')?.addEventListener('click',activateDevice);
- $('spotifyDeviceSelect')?.addEventListener('change',()=>{const el=$('spotifyDeviceSelect');if(el&&el.value){prefs.set('device-id',el.value);prefs.set('device-name',el.selectedOptions?.[0]?.textContent||'Spotify');status('Wybrano urządzenie Spotify: '+(el.selectedOptions?.[0]?.textContent||''));}});
- if(isConnected() && !new URLSearchParams(location.search).has('code'))diagnose();
+ $('spotifyDeviceSelect')?.addEventListener('change',()=>{const el=$('spotifyDeviceSelect');if(el&&el.value){prefs.set('device-id',el.value);prefs.set('device-name',el.selectedOptions?.[0]?.textContent||'Spotify');const note=$('spotifyActivationStatus');if(note)note.textContent='✅ Wybrane urządzenie: '+(el.selectedOptions?.[0]?.textContent||'Spotify')+'. Możesz nacisnąć START.';}});
  $('testSound')?.addEventListener('click',()=>{
   window.FilmsterAudio.test();
   if($('audioStatus'))$('audioStatus').textContent='🔊 Słychać 3 sygnały? Jeśli nie, zwiększ głośność multimediów i wyłącz tryb cichy.';
