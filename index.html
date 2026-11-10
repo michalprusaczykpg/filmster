@@ -84,8 +84,7 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
     <input type="text" id="spotifyClientId" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Wklej Client ID ze Spotify Developer Dashboard" style="width:100%">
     <div class="actions" style="margin-top:12px"><button id="spotifyConnect" type="button" class="spotify">Połącz konto Spotify</button><button id="spotifyDisconnect" type="button" class="quiet">Rozłącz</button></div>
     <p id="spotifyStatus" role="status" style="margin-top:12px">Nie połączono. Nadal możesz grać, otwierając utwory ręcznie w Spotify.</p>
-    <p class="small">Po zalogowaniu i włączeniu Spotify na telefonie naciśnij „Aktywuj Spotify tylko raz” na ekranie rundy. FILMSTER zapamięta wybrane urządzenie i spróbuje używać go w kolejnych rundach. iOS może czasem rozłączyć Spotify w tle.</p>
-    <button id="spotifyTestConnection" type="button" class="secondary" style="margin-top:10px">🔍 Sprawdź Spotify API i urządzenia</button>
+    <p class="small">To jest jednorazowa konfiguracja konta. Po rozpoczęciu gry na ekranie rundy znajdziesz <b>jedno</b> miejsce do przygotowania odtwarzacza Spotify. Potem korzystaj ze START. W razie problemów dostępny jest osobny tryb ręczny.</p>
     <p style="margin-top:9px">Po aktualizacji FILMSTER kliknij <b>Rozłącz</b>, a potem <b>Połącz konto Spotify</b> i zaakceptuj nowe uprawnienia. Następnie sprawdź API. Jeśli pojawi się <b>HTTP 403</b>, dodaj konto w Spotify Developer Dashboard → Users Management. Jeśli nie ma urządzeń, otwórz Spotify i odtwórz dowolny utwór.</p>
     <p>W Spotify włącz odtwarzanie dowolnego utworu na iPhonie lub komputerze, potem wróć do FILMSTER. Gra wyszuka piosenkę i wyśle polecenie odtwarzania do Spotify Connect. Niektóre nagrania lub urządzenia mogą być niedostępne.</p>
   </details>
@@ -104,21 +103,26 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
       <div class="timer-label" id="clockLabel">Gotowi? Otwórz Spotify, potem rozpocznij odliczanie.</div>
       <div class="timer-progress"><div id="timerBar"></div></div>
       <div class="actions" style="justify-content:center">
-        <a id="spotifyActivateLink" class="secondary hidden" href="https://open.spotify.com/" rel="noopener noreferrer" target="_blank">🎧 Otwórz Spotify — aktywuj odtwarzacz</a>
-        <a id="spotifyLink" class="spotify" href="https://open.spotify.com/search/" rel="noopener noreferrer" target="_blank">🔎 Znajdź wylosowany utwór (ręcznie)</a>
         <button id="countdownStart" class="primary">▶ 3 · 2 · 1 · START!</button>
         <button id="pauseTimer" class="secondary hidden">⏸ Pauza</button>
       </div>
       <p id="spotifyFeedback" class="stage-note" role="status" aria-live="polite">Sprawdzam połączenie Spotify…</p>
       <div id="spotifyDeviceTools" class="info" style="margin:10px 0">
-        <label for="spotifyDeviceSelect" style="display:block;font-weight:750;margin-bottom:8px">🔊 Urządzenie Spotify do odtwarzania</label>
-        <select id="spotifyDeviceSelect" aria-label="Wybierz urządzenie Spotify" style="width:100%;max-width:100%;padding:10px" disabled><option value="">Sprawdź urządzenia przyciskiem poniżej</option></select>
-        <div class="actions" style="margin-top:10px">
-          <button id="spotifyActivateOnce" type="button" class="spotify">🔊 Aktywuj Spotify tylko raz</button>
-          <button id="spotifyCheckGame" type="button" class="secondary">🔍 Sprawdź połączenie i urządzenia</button>
-        </div>
-        <p id="spotifyDiagnostics" role="status" aria-live="polite" style="margin:8px 0 0">Przed START sprawdź dostęp do Spotify API, potem wybierz urządzenie.</p>
+        <p style="margin:0 0 10px">🎧 <b>Pierwsza runda:</b> włącz dowolną piosenkę w aplikacji Spotify, wróć tutaj i kliknij przycisk poniżej. Później wystarczy START.</p>
+        <button id="spotifyActivateOnce" type="button" class="spotify">🔊 Przygotuj Spotify (jednorazowo)</button>
+        <p id="spotifyActivationStatus" role="status" style="margin:8px 0 0">Nie wybrano jeszcze odtwarzacza w tej przeglądarce.</p>
+        <details id="spotifyAdvanced" style="margin-top:12px">
+          <summary>⚙️ Urządzenie i diagnostyka (opcjonalnie)</summary>
+          <label for="spotifyDeviceSelect" style="display:block;font-weight:750;margin:10px 0 8px">Urządzenie Spotify</label>
+          <select id="spotifyDeviceSelect" aria-label="Wybierz urządzenie Spotify" style="width:100%;max-width:100%;padding:10px" disabled><option value="">Brak wykrytych urządzeń</option></select>
+          <p id="spotifyDiagnostics" role="status" aria-live="polite" style="margin:8px 0 0">Przygotowanie Spotify sprawdza listę urządzeń automatycznie.</p>
+        </details>
       </div>
+      <details id="spotifyManual" class="install-card" style="margin:10px 0">
+        <summary>🎵 Alternatywa: uruchom piosenkę ręcznie</summary>
+        <p>Przycisk otwiera wyszukiwanie konkretnego wylosowanego utworu w Spotify. Po uruchomieniu muzyki wróć do gry — START włączy tylko odliczanie.</p>
+        <a id="spotifyLink" class="spotify" href="https://open.spotify.com/search/" rel="noopener noreferrer" target="_blank" style="display:inline-block;margin:7px 0">🔎 Otwórz wylosowany utwór w Spotify</a>
+      </details>
       <div id="spotifyConnectWarning" class="info hidden" role="status" style="margin:12px 0;border:2px solid #f5bd76">
         <strong>⚠️ Spotify Premium nie jest połączone z FILMSTER.</strong>
         <p style="margin:6px 0">Samo posiadanie Premium nie uruchamia muzyki. Potrzebna jest autoryzacja Spotify poprzez Client ID aplikacji deweloperskiej. Bez tego START nie może włączyć piosenki.</p>
@@ -189,8 +193,9 @@ function syncSpotifyMode(){
 function refreshSpotifyRoundNote(){
  const isPremium=getSpotifyMode()==='premium';
  const connected=window.FilmsterSpotify&&window.FilmsterSpotify.isConnected();
- $('spotifyLink').textContent='🔎 Wylosowany utwór — otwórz ręcznie';
- show('spotifyActivateLink',isPremium);
+ $('spotifyLink').textContent='🔎 Otwórz wylosowany utwór w Spotify';
+ show('spotifyDeviceTools',isPremium);
+ if(!isPremium)$('spotifyManual').open=true;
  const manual=!!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound());
  $('countdownStart').textContent=isPremium&&connected&&!manual?'▶ 3 · 2 · 1 · START + Spotify':isPremium&&!connected&&!manual?'▶ START — wymaga połączenia Spotify':'▶ 3 · 2 · 1 · START — tylko czas';
  $('spotifyFeedback').textContent=isPremium
@@ -315,9 +320,6 @@ $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names'
  show('setup',false);show('finish',false);show('game',true);newRound();try{window.scrollTo(0,0);}catch(_){}
 });
 $('countdownStart').addEventListener('click',countdown);
-$('spotifyActivateLink').addEventListener('click',()=>{
- $('spotifyFeedback').textContent='🎧 Uruchom dowolną piosenkę w aplikacji Spotify, wróć tutaj i kliknij START + Spotify. Nie zatrzymuj odtwarzania przed powrotem.';
-});
 $('spotifyLink').addEventListener('click',()=>{
  if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);
  show('spotifyConnectWarning',false);
@@ -352,4 +354,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=13"></script></body></html>
+</script><script src="./spotify.js?v=14"></script></body></html>
