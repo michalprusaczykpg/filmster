@@ -229,7 +229,9 @@ function newRound(){stopClocks();if(state.index>=state.rounds){endGame();return;
  $('roundLabel').textContent='Runda '+(state.index+1)+' z '+state.rounds;
  $('activeLabel').textContent='🎤 '+activePlayer().name;
  $('packLabel').textContent=pack.icon+' '+pack.label;
- $('spotifyLink').href=s.spotifyId?'https://open.spotify.com/track/'+encodeURIComponent(s.spotifyId):'https://open.spotify.com/search/'+encodeURIComponent(s.title+' '+s.artist);
+ $('spotifyLink').href=getSpotifyMode()==='premium'
+  ?'https://open.spotify.com/'
+  :(s.spotifyId?'https://open.spotify.com/track/'+encodeURIComponent(s.spotifyId):'https://open.spotify.com/search/'+encodeURIComponent(s.title+' '+s.artist));
  if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(false);
  refreshSpotifyRoundNote();
  $('clockLabel').textContent=(getSpotifyMode()==='premium'&&window.FilmsterSpotify&&window.FilmsterSpotify.isConnected())
