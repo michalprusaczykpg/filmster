@@ -44,10 +44,10 @@ FILMSTER nie jest powiązany z marką Hitster ani ze Spotify.
 
 ## Katalog piosenek
 
-W tej wersji: **753 utwory** w pięciu kategoriach: filmowe 127, polskie **288**, taneczne 90, romantyczne 81 i **dziecięce 167** (dla Stasia, Ignasia lub do wspólnej zabawy). Plik `songs-extra.js` zawiera 134 utwory dodatkowe, `songs-polish.js` zawiera kolejne **210 polskich piosenek** (klasyka i nowe utwory), a `songs-kids.js` zawiera kategorię dziecięcą (w tym 20 utworów z albumu *Lisek i przyjaciele*, 2023).
+W tej wersji: **938 utworów** w pięciu kategoriach: filmowe 127, polskie **288**, taneczne **275**, romantyczne 81 i **dziecięce 167** (dla Stasia, Ignasia lub do wspólnej zabawy). Plik `songs-extra.js` zawiera 134 utwory dodatkowe, `songs-dance.js` zawiera **185 nowych utworów tanecznych** (m.in. Shakira, Jennifer Lopez, disco, eurodance), `songs-polish.js` zawiera kolejne **210 polskich piosenek** (klasyka i nowe utwory), a `songs-kids.js` zawiera kategorię dziecięcą (w tym 20 utworów z albumu *Lisek i przyjaciele*, 2023).
 
 W ustawieniach po zaznaczeniu **Piosenki dla dzieci** można wybrać: „Staś i Ignaś — wszystkie”, „Staś (6 lat)”, „Ignaś (4 lata)” albo „Tylko piosenki wspólne”. Zawartość dziecięca obejmuje m.in. Bluey, Spidey, polskie piosenki oraz ścieżki dźwiękowe z filmów dla dzieci.
 
 **Równe lata dają punkt.** Miejsca na osi czasu są przedziałami domkniętymi: jeśli przedział wybranego miejsca zawiera rok bieżącej piosenki, także taki sam jak na którejś sąsiedniej karcie, odpowiedź jest poprawna i daje +1 punkt. Na przykład dla kart 2020, 2023, 2023 i 2026 utwór z 2023 można wstawić w każde miejsce pomiędzy pierwszą i ostatnią kartą z 2023 włącznie.
 
-Dalszy cel rozbudowy: 500 dodatkowych utworów w każdej pierwotnej kategorii. Polska ma już 210 z zamówionych 500 dodatkowych utworów. Zamówienie nie jest jeszcze w pełni zrealizowane. Uwaga: konkretne nagrania w Spotify mogą mieć daty inne niż pierwotne wersje.
+Dalszy cel rozbudowy: 500 dodatkowych utworów w każdej pierwotnej kategorii. Kategoria taneczna ma 185 dodatkowych utworów w najnowszej partii, oprócz wcześniejszych dodatków. Polska ma już 210 z zamówionych 500 dodatkowych utworów. Zamówienie nie jest jeszcze w pełni zrealizowane. Uwaga: konkretne nagrania w Spotify mogą mieć daty inne niż pierwotne wersje.
