@@ -29,6 +29,14 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
 .install-card{border:1px solid #765671;border-radius:16px;background:#2a2441;margin-top:15px;padding:13px 15px;color:#fff}
 .install-card summary{cursor:pointer;font-weight:750;list-style-position:inside}
 .install-card p{font-size:13px;margin:9px 0 0;color:#d5c6df}
+#spotifyDeviceTools,#spotifyManual{border-color:#47435e;background:rgba(23,27,46,.8);padding:10px 13px;box-shadow:none}
+#spotifyDeviceTools summary,#spotifyManual summary{list-style: none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:#d7e2f1;min-height:32px}
+#spotifyDeviceTools summary::-webkit-details-marker,#spotifyManual summary::-webkit-details-marker{display:none}
+#spotifyDeviceTools summary::after,#spotifyManual summary::after{content:"⌄";font-size:22px;font-weight:400;color:#aeb1cb;line-height:1}
+#spotifyDeviceTools[open] summary::after,#spotifyManual[open] summary::after{content:"⌃"}
+#spotifyDeviceTools[open],#spotifyManual[open]{background:#252540;border-color:#70627c}
+#spotifyFeedback{font-size:13px;line-height:1.45;padding:9px 12px;border-radius:12px;background:#191c30;border:1px solid #383b56;color:#d5e1eb}
+#countdownStart{min-height:56px;font-size:16px;box-shadow:0 10px 28px #0004}
 </style>
 <style>
 #launchHelp{background:#3a2740;border:2px solid #ff8fbb;border-radius:14px;padding:14px;margin:14px 0;font-size:14px;color:#ffe9f1}
@@ -107,8 +115,9 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
         <button id="pauseTimer" class="secondary hidden">⏸ Pauza</button>
       </div>
       <p id="spotifyFeedback" class="stage-note" role="status" aria-live="polite">Sprawdzam połączenie Spotify…</p>
-      <div id="spotifyDeviceTools" class="info" style="margin:10px 0">
-        <p style="margin:0 0 10px">🎧 <b>Pierwsza runda:</b> włącz dowolną piosenkę w aplikacji Spotify, wróć tutaj i kliknij przycisk poniżej. Później wystarczy START.</p>
+      <details id="spotifyDeviceTools" class="install-card spotify-settings" style="margin:12px 0">
+        <summary id="spotifySetupSummary">⚙️ Spotify — ustawienia odtwarzacza</summary>
+        <p style="margin:10px 0">Pierwsze uruchomienie: włącz dowolną piosenkę w aplikacji Spotify, wróć do FILMSTER i wybierz przycisk przygotowania. Później korzystaj ze START.</p>
         <button id="spotifyActivateOnce" type="button" class="spotify">🔊 Przygotuj Spotify (jednorazowo)</button>
         <p id="spotifyActivationStatus" role="status" style="margin:8px 0 0">Nie wybrano jeszcze odtwarzacza w tej przeglądarce.</p>
         <details id="spotifyAdvanced" style="margin-top:12px">
@@ -119,8 +128,8 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
           <p id="spotifyDiagnostics" role="status" aria-live="polite" style="margin:8px 0 0">Test pokaże, czy Spotify przyjmuje zapytania, nawet jeśli nie ma aktywnego odtwarzacza.</p>
           <pre id="spotifyHttpLog" aria-label="Historia kodów odpowiedzi Spotify API" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;margin:10px 0 0;color:var(--muted)">Brak testu. Nie wyświetlamy tokenów ani danych logowania.</pre>
         </details>
-      </div>
-      <details id="spotifyManual" class="install-card" style="margin:10px 0">
+      </details>
+      <details id="spotifyManual" class="install-card spotify-settings" style="margin:10px 0">
         <summary>🎵 Alternatywa: uruchom piosenkę ręcznie</summary>
         <p>Przycisk otwiera wyszukiwanie konkretnego wylosowanego utworu w Spotify. Po uruchomieniu muzyki wróć do gry — START włączy tylko odliczanie.</p>
         <a id="spotifyLink" class="spotify" href="https://open.spotify.com/search/" rel="noopener noreferrer" target="_blank" style="display:inline-block;margin:7px 0">🔎 Otwórz wylosowany utwór w Spotify</a>
@@ -199,6 +208,10 @@ function refreshSpotifyRoundNote(){
  const connected=window.FilmsterSpotify&&window.FilmsterSpotify.isConnected();
  $('spotifyLink').textContent='🔎 Otwórz wylosowany utwór w Spotify';
  show('spotifyDeviceTools',isPremium);
+ const remembered=!!(window.FilmsterSpotify&&window.FilmsterSpotify.hasDevice&&window.FilmsterSpotify.hasDevice());
+ $('spotifySetupSummary').textContent=connected
+  ?(remembered?'✓ Spotify — odtwarzacz zapamiętany · ustawienia':'⚙️ Spotify — przygotuj odtwarzacz')
+  :'⚙️ Spotify — połącz konto w ustawieniach gry';
  if(!isPremium)$('spotifyManual').open=true;
  else if(!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound()))$('spotifyManual').open=false;
  const manual=!!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound());
@@ -332,6 +345,12 @@ function newRound(){stopClocks();if(state.index>=state.rounds){endGame();return;
   if(getSpotifyMode()==='premium'&&window.FilmsterSpotify.isConnected())window.FilmsterSpotify.prime(s);
  }
  refreshSpotifyRoundNote();
+ // Keep the setup out of the playing area after the first activation.
+ // Only surface it by default when there is no remembered Spotify device.
+ $('spotifyDeviceTools').open=getSpotifyMode()==='premium'
+  &&!!(window.FilmsterSpotify&&window.FilmsterSpotify.isConnected())
+  &&!(window.FilmsterSpotify.hasDevice&&window.FilmsterSpotify.hasDevice());
+ $('spotifyAdvanced').open=false;
  $('clockLabel').textContent=(getSpotifyMode()==='premium'&&window.FilmsterSpotify&&window.FilmsterSpotify.isConnected())
   ?'Spotify połączone — naciśnij START, aby spróbować uruchomić piosenkę.'
   :'Włącz piosenkę ręcznie w Spotify (tryb DJ) lub najpierw połącz Spotify Premium.';
@@ -394,4 +413,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=19"></script></body></html>
+</script><script src="./spotify.js?v=20"></script></body></html>
