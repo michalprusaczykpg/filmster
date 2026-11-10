@@ -19,11 +19,16 @@
  const b64url=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
  async function authorize(){
   const clientId=$('spotifyClientId').value.trim();
-  if(!/^[0-9a-f]{32}$/i.test(clientId)){status('Wklej Client ID Spotify (32 znaki). Nie wklejaj Client Secret.');return;}
+  if(!/^[0-9a-f]{32}$/i.test(clientId)){
+   const n=clientId.length;
+   status('Nieprawidłowy Client ID ('+n+' znaków). Skopiuj pełne 32 znaki z Spotify Developer Dashboard → Twoja aplikacja → Settings → Client ID. Nie wklejaj nazwy konta ani Client Secret.');
+   if($('spotifyConfig'))$('spotifyConfig').open=true;
+   return;
+  }
   prefs.set('client-id',clientId);
   if(!crypto?.subtle){status('Logowanie Spotify wymaga HTTPS. Otwórz stronę GitHub Pages.');return;}
   const verifier=randomUrl()+randomUrl();const challenge=b64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
-  const state=randomUrl();store.set('verifier',verifier);store.set('state',state);
+  const state=randomUrl();prefs.set('oauth-verifier',verifier);prefs.set('oauth-state',state);prefs.set('oauth-since',Date.now());
   const url=new URL('https://accounts.spotify.com/authorize');
   url.search=new URLSearchParams({client_id:clientId,response_type:'code',redirect_uri:redirectUri(),scope:'user-read-playback-state user-modify-playback-state',state,code_challenge_method:'S256',code_challenge:challenge}).toString();
   location.assign(url.toString());
@@ -99,15 +104,15 @@
   if(!code&&!error)return;
   history.replaceState(null,'',location.pathname+location.hash);
   if(error){status('Spotify: odrzucono autoryzację ('+error+').');$('spotifyConfig').open=true;return;}
-  if(params.get('state')!==store.get('state')){status('Spotify: zabezpieczenie logowania nie pasuje. Spróbuj jeszcze raz.');$('spotifyConfig').open=true;return;}
-  const verifier=store.get('verifier'),client_id=prefs.get('client-id');
-  store.del('state');store.del('verifier');
+  if(params.get('state')!==prefs.get('oauth-state')||Date.now()-Number(prefs.get('oauth-since')||0)>15*60*1000){status('Spotify: sesja logowania wygasła lub nie pasuje. Otwórz FILMSTER w Safari i połącz konto ponownie.');$('spotifyConfig').open=true;return;}
+  const verifier=prefs.get('oauth-verifier'),client_id=prefs.get('client-id');
+  prefs.del('oauth-state');prefs.del('oauth-verifier');prefs.del('oauth-since');
   if(!verifier||!client_id){status('Sesja logowania wygasła. Spróbuj ponownie.');return;}
   try{await postToken({grant_type:'authorization_code',code,redirect_uri:redirectUri(),client_id,code_verifier:verifier});status('✅ Spotify połączone. Otwórz Spotify, odtwórz dowolny utwór i wróć do FILMSTER.');$('spotifyConfig').open=true;}
   catch(e){status('Błąd połączenia: '+e.message);$('spotifyConfig').open=true;}
  }
  function disconnect(){
-  ['access-token','expiry','refresh-token','verifier','state'].forEach(k=>store.del(k));
+  ['access-token','expiry','refresh-token','verifier','state'].forEach(k=>store.del(k));['oauth-state','oauth-verifier','oauth-since'].forEach(k=>prefs.del(k));
   startedOnSpotify=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
  }
  function setManualRound(b){manual=!!b;}
