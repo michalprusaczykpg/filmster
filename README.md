@@ -10,7 +10,7 @@ W Safari: **Udostępnij → Dodaj do ekranu początkowego**. Aby pobrać aktuali
 
 ## Spotify — odtwarzanie muzyki
 
-Domyślny tryb ręczny: kliknij **Wyszukaj w Spotify**, DJ wybiera piosenkę i wraca do FILMSTER. Spotify powinno kontynuować odtwarzanie w tle, ale zależy to od ustawień iOS i odtwarzacza.
+Na ekranie startowym wybierz **Spotify Free** (ręczne odtwarzanie) albo **Spotify Premium** (możliwe sterowanie Spotify Connect po połączeniu konta). W trybie Free kliknij **Otwórz piosenkę w Spotify Free**, a DJ wybiera piosenkę i wraca do FILMSTER. Spotify powinno kontynuować odtwarzanie w tle, ale zależy to od ustawień iOS i odtwarzacza.
 
 Dla automatycznego uruchamiania piosenek z poziomu FILMSTER:
 
@@ -34,3 +34,8 @@ Na ekranie ustawień kliknij **🔊 Sprawdź dźwięk odliczania**. Dźwięki 3�
 Projekt statyczny, bez serwera. GitHub Pages: `Settings → Pages → Deploy from a branch → main / (root)`. Manifest: `manifest.webmanifest`; service worker: `sw.js`.
 
 FILMSTER nie jest powiązany z marką Hitster ani ze Spotify.
+
+
+## Katalog piosenek
+
+W tej wersji: **376 utworów** w czterech kategoriach (242 z wersji bazowej i 134 dodatkowo wybrane, bez zduplikowania tytułu i wykonawcy w kategorii). Plik `songs-extra.js` można dalej rozszerzać. Zamówione 500 dodatkowych utworów na każdą kategorię nie zostało jeszcze w pełni zrealizowane. Metadane i lata utworów należy sprawdzić dla konkretnego wydania przed grą.
