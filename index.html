@@ -85,8 +85,8 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
     <div class="actions" style="margin-top:12px"><button id="spotifyConnect" type="button" class="spotify">Połącz konto Spotify</button><button id="spotifyDisconnect" type="button" class="quiet">Rozłącz</button></div>
     <p id="spotifyStatus" role="status" style="margin-top:12px">Nie połączono. Nadal możesz grać, otwierając utwory ręcznie w Spotify.</p>
     <p class="small">To jest jednorazowa konfiguracja konta. Po rozpoczęciu gry na ekranie rundy znajdziesz <b>jedno</b> miejsce do przygotowania odtwarzacza Spotify. Potem korzystaj ze START. W razie problemów dostępny jest osobny tryb ręczny.</p>
-    <p style="margin-top:9px">Po aktualizacji FILMSTER kliknij <b>Rozłącz</b>, a potem <b>Połącz konto Spotify</b> i zaakceptuj nowe uprawnienia. Następnie sprawdź API. Jeśli pojawi się <b>HTTP 403</b>, dodaj konto w Spotify Developer Dashboard → Users Management. Jeśli nie ma urządzeń, otwórz Spotify i odtwórz dowolny utwór.</p>
-    <p>W Spotify włącz odtwarzanie dowolnego utworu na iPhonie lub komputerze, potem wróć do FILMSTER. Gra wyszuka piosenkę i wyśle polecenie odtwarzania do Spotify Connect. Niektóre nagrania lub urządzenia mogą być niedostępne.</p>
+    <p style="margin-top:9px">W razie błędu 403 sprawdź, czy Twoje konto zostało dopisane w Spotify Developer Dashboard → Users Management. Nie trzeba ponownie łączyć konta przed każdą grą.</p>
+    <p>Po połączeniu konta rozpocznij grę. Na ekranie rundy dostępny jest jeden przycisk przygotowania odtwarzacza. Następnie używaj START, a w razie ograniczeń Spotify skorzystaj z ręcznego uruchamiania utworu.</p>
   </details>
   <button id="startGame" class="primary wide" type="button">▶ Rozpocznij grę</button><div id="appError" role="alert"></div>
   <details class="install-card"><summary>📱 Jak zainstalować FILMSTER na iPhonie?</summary><p>W Safari otwórz stronę FILMSTER, stuknij Udostępnij, potem „Dodaj do ekranu początkowego”, włącz „Otwórz jako aplikację” i wybierz „Dodaj”. Gra działa również na komputerze.</p><p>Po pierwszym wczytaniu samą grę można uruchamiać bez internetu. Otwarcie i odtwarzanie utworów w Spotify wymaga połączenia.</p></details>
@@ -355,4 +355,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=15"></script></body></html>
+</script><script src="./spotify.js?v=16"></script></body></html>
