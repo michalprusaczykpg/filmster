@@ -75,7 +75,7 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
     </select>
     <p class="small" id="spotifyModeHelp" style="margin:8px 0 0" role="status">Spotify Premium nie łączy się automatycznie. Funkcja odtwarzania wymaga osobnej autoryzacji w aplikacji Spotify Developer.</p>
   </div>
-  <div class="actions" style="margin-bottom:14px"><button id="testSound" type="button" class="secondary">🔊 Sprawdź dźwięk odliczania</button><span id="audioStatus" class="small" role="status"></span></div>
+  <div class="actions" style="margin-bottom:14px"><button id="testSound" type="button" class="secondary">🔊 Test dźwięku (poza grą)</button><span id="audioStatus" class="small" role="status"></span></div>
   <details id="spotifyConfig" class="install-card">
     <summary>🎧 Połącz Spotify Premium — automatyczne odtwarzanie</summary>
     <p>Do uruchamiania piosenek z poziomu gry potrzebujesz <b>Spotify Premium</b> oraz własnej darmowej aplikacji w <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">Spotify Developer Dashboard</a>. Nazwij ją FILMSTER i podaj poniższy adres przekierowania (Redirect URI):</p>
@@ -100,7 +100,7 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
       <div class="stage-title">Tajemnicza piosenka</div>
       <p class="subtle" style="margin:5px 0 16px">DJ puszcza utwór, a gracz wybiera miejsce na osi czasu.</p>
       <div class="countdown-timer" id="clock" aria-live="off">00:45</div>
-      <div class="timer-label" id="clockLabel">Gotowi? Otwórz Spotify, potem rozpocznij odliczanie.</div>
+      <div class="timer-label" id="clockLabel">Odliczanie 3–2–1 jest bez dźwięku, żeby nie przerywać Spotify.</div>
       <div class="timer-progress"><div id="timerBar"></div></div>
       <div class="actions" style="justify-content:center">
         <button id="countdownStart" class="primary">▶ 3 · 2 · 1 · START!</button>
@@ -225,7 +225,10 @@ function tick(){if(!state||state.phase!=='playing'||state.seconds===0)return;rem
 function startTimer(){if(!state)return;state.phase='playing';show('overlay',false);show('countdownStart',false);show('pauseTimer',state.seconds>0);$('clockLabel').textContent='Czas na ułożenie utworu na osi czasu';if(state.seconds>0){deadline=Date.now()+remainingMs;timer=setInterval(tick,130);}renderTimeline();renderClock();}
 async function countdown(){
  if(!state||state.phase!=='ready')return;
- const sound=window.FilmsterAudio;try{sound&&sound.unlock();}catch(_){}
+ // iOS Safari/WebKit may pause Spotify when FILMSTER opens Web Audio.
+ // Use a visual countdown only and release a test AudioContext before playback.
+ const sound=window.FilmsterAudio;
+ try{if(sound&&sound.release)await sound.release();}catch(_){}
  $('countdownStart').disabled=true;
  const spotify=window.FilmsterSpotify;
  if(getSpotifyMode()==='premium'&&(!spotify||!spotify.isConnected())&&!(spotify&&spotify.isManualRound())){
@@ -244,9 +247,9 @@ async function countdown(){
  }
  if(!state||state.phase!=='ready')return;
  state.phase='countdown';show('overlay',true);$('overlayNumber').textContent='3';
- if(sound)sound.tick(3);
- for(let t=1;t<=2;t++){countdownHandles.push(setTimeout(()=>{$('overlayNumber').textContent=String(3-t);if(sound)sound.tick(3-t);},t*1000));}
- countdownHandles.push(setTimeout(()=>{$('overlayNumber').textContent='START!';if(sound)sound.start();startTimer();},3000));
+ // Intentional silence: browser beeps interrupt Spotify audio focus on iPhone.
+ for(let t=1;t<=2;t++){countdownHandles.push(setTimeout(()=>{$('overlayNumber').textContent=String(3-t);},t*1000));}
+ countdownHandles.push(setTimeout(()=>{$('overlayNumber').textContent='START!';startTimer();},3000));
 }
 function pauseTimer(){if(!state||state.seconds===0)return;if(state.phase==='playing'){remainingMs=Math.max(0,deadline-Date.now());clearInterval(timer);timer=null;state.phase='paused';$('pauseTimer').textContent='▶ Wznów';$('clockLabel').textContent='Pauza';}else if(state.phase==='paused'){state.phase='playing';deadline=Date.now()+remainingMs;timer=setInterval(tick,130);$('pauseTimer').textContent='⏸ Pauza';$('clockLabel').textContent='Czas na ułożenie utworu na osi czasu';}renderTimeline();renderClock();}
 function activePlayer(){return state.players[state.index%state.players.length];}
@@ -359,4 +362,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=17"></script></body></html>
+</script><script src="./spotify.js?v=18"></script></body></html>
