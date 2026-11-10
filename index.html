@@ -157,7 +157,7 @@ function syncSpotifyMode(){
 function refreshSpotifyRoundNote(){
  const isPremium=getSpotifyMode()==='premium';
  const connected=window.FilmsterSpotify&&window.FilmsterSpotify.isConnected();
- $('spotifyLink').textContent='↗ Otwórz Spotify (ręcznie)';
+ $('spotifyLink').textContent=isPremium?'↗ Otwórz Spotify (aktywuj urządzenie)':'↗ Otwórz utwór w Spotify (ręcznie)';
  const manual=!!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound());
  $('countdownStart').textContent=isPremium&&connected&&!manual?'▶ 3 · 2 · 1 · START + Spotify':isPremium&&!connected&&!manual?'▶ START — wymaga połączenia Spotify':'▶ 3 · 2 · 1 · START — tylko czas';
  $('spotifyFeedback').textContent=isPremium
@@ -257,7 +257,15 @@ $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names'
  show('setup',false);show('finish',false);show('game',true);newRound();try{window.scrollTo(0,0);}catch(_){}
 });
 $('countdownStart').addEventListener('click',countdown);
-$('spotifyLink').addEventListener('click',()=>{if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);show('spotifyConnectWarning',false);$('spotifyFeedback').textContent='🎧 Wybrano ręczne odtwarzanie. Włącz piosenkę w Spotify, wróć do FILMSTER i naciśnij START.';});
+$('spotifyLink').addEventListener('click',()=>{
+ const premium=getSpotifyMode()==='premium';
+ if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(!premium);
+ show('spotifyConnectWarning',false);
+ $('spotifyFeedback').textContent=premium
+  ?'🎵 Otwórz Spotify i odtwórz dowolny utwór, aby aktywować urządzenie. Po powrocie naciśnij START + Spotify — FILMSTER spróbuje automatycznie uruchomić wylosowaną piosenkę.'
+  :'🎧 Tryb DJ. Włącz piosenkę ręcznie w Spotify, wróć do FILMSTER i naciśnij START.';
+ refreshSpotifyRoundNote();
+});
 $('switchToDjMode').addEventListener('click',()=>{$('spotifyMode').value='free';if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);syncSpotifyMode();saveOptions();$('countdownStart').disabled=false;});
 $('pauseTimer').addEventListener('click',pauseTimer);
 $('timeline').addEventListener('click',ev=>{const element=ev.target.closest('[data-slot]');if(!element||!state||!['playing','paused'].includes(state.phase))return;state.choice=Number(element.dataset.slot);renderTimeline();});
