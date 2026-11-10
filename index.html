@@ -149,7 +149,9 @@ function syncSpotifyMode(){
 function refreshSpotifyRoundNote(){
  const isPremium=getSpotifyMode()==='premium';
  const connected=window.FilmsterSpotify&&window.FilmsterSpotify.isConnected();
- $('spotifyLink').textContent=isPremium?'🔎 Spotify — ręczne odtworzenie':'🆓 Otwórz piosenkę w Spotify Free';
+ $('spotifyLink').textContent='↗ Otwórz Spotify (ręcznie)';
+ const manual=!!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound());
+ $('countdownStart').textContent=isPremium&&connected&&!manual?'▶ 3 · 2 · 1 · START + Spotify':isPremium&&!connected&&!manual?'▶ START — wymaga połączenia Spotify':'▶ 3 · 2 · 1 · START — tylko czas';
  $('spotifyFeedback').textContent=isPremium
   ?(connected?'✅ Konto Spotify połączone z FILMSTER. START spróbuje odtworzyć piosenkę na aktywnym urządzeniu Spotify.':'⚠️ Spotify Premium jest wybrane, ale konto NIE jest połączone. START nie może odtwarzać muzyki. Przejdź do trybu DJ albo połącz Spotify w ustawieniach.')
   :'🎧 Tryb DJ: otwórz piosenkę w Spotify i włącz ją ręcznie. START uruchomi wyłącznie odliczanie.';
