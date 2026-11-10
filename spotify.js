@@ -57,10 +57,10 @@
   if(!response.ok){
    const msg=typeof data?.error==='object'?data.error.message:data.error;
    if(response.status===401)throw new Error('Sesja Spotify wygasła. Połącz konto jeszcze raz.');
-   if(response.status===403)throw new Error('Spotify nie zezwoliło na odtwarzanie. Sprawdź Premium oraz dostęp użytkownika w Spotify Developer Dashboard.');
-   if(response.status===404)throw new Error('Nie znaleziono aktywnego odtwarzacza Spotify.');
+   if(response.status===403)throw new Error('HTTP 403 ['+path.split('?')[0]+']: Spotify odrzuciło dostęp do API. W Spotify Developer Dashboard → FILMSTER → Settings → Users Management dodaj e-mail konta, którym się logujesz. Wymagane jest Spotify Premium. Szczegóły Spotify: '+String(msg||'brak').slice(0,140));
+   if(response.status===404)throw new Error('HTTP 404 ['+path.split('?')[0]+']: Brak aktywnego odtwarzacza. Otwórz Spotify na iPhonie, puść dowolny utwór i wróć do FILMSTER. Szczegóły: '+String(msg||'brak').slice(0,120));
    if(response.status===429)throw new Error('Spotify ogranicza liczbę zapytań. Spróbuj ponownie za chwilę.');
-   throw new Error('Spotify: '+(msg||'błąd '+response.status));
+   throw new Error('Spotify HTTP '+response.status+' ['+path.split('?')[0]+']: '+String(msg||'Nieznany błąd').slice(0,160));
   }
   return data;
  }
@@ -75,23 +75,69 @@
   return result;
  }
  async function play(song){
-  if(!isConnected())throw new Error('Nie połączono konta Spotify.');
-  const q='track:'+song.title+' artist:'+song.artist;
-  const search=await spotifyApi('/search?'+new URLSearchParams({q,type:'track',limit:'10'}));
-  let tracks=search.tracks?.items||[];
-  if(!tracks.length){const loose=await spotifyApi('/search?'+new URLSearchParams({q:song.title+' '+song.artist,type:'track',limit:'10'}));tracks=loose.tracks?.items||[];}
-  if(!tracks.length)throw new Error('Nie znalazłem tego nagrania w Spotify. Możesz wyszukać je ręcznie.');
-  tracks.sort((a,b)=>rankSong(song,b)-rankSong(song,a));
-  if(rankSong(song,tracks[0])<22)throw new Error('Spotify nie znalazło wiarygodnego dopasowania utworu. Wyszukaj ręcznie.');
-  const devices=await spotifyApi('/me/player/devices');
-  const available=(devices.devices||[]).filter(d=>!d.is_restricted);
-  if(!available.length)throw new Error('Otwórz aplikację Spotify, odtwórz dowolny utwór, wróć do FILMSTER i spróbuj ponownie.');
-  const active=available.find(d=>d.is_active)||available[0];
-  if(!active?.id)throw new Error('Spotify nie zwróciło urządzenia do odtwarzania.');
-  await spotifyApi('/me/player/play?device_id='+encodeURIComponent(active.id),{method:'PUT',body:JSON.stringify({uris:[tracks[0].uri],position_ms:0})});
+  if(!isConnected())throw new Error('Brak sesji Spotify — najpierw połącz konto.');
+  let uri='';
+  if(song.spotifyId && /^[a-zA-Z0-9]{22}$/.test(song.spotifyId)) {
+   uri='spotify:track:'+song.spotifyId;
+  } else {
+   const q='track:'+song.title+' artist:'+song.artist;
+   let search=await spotifyApi('/search?'+new URLSearchParams({q,type:'track',limit:'10'}));
+   let tracks=search.tracks?.items||[];
+   tracks.sort((a,b)=>rankSong(song,b)-rankSong(song,a));
+   if(!tracks.length||rankSong(song,tracks[0])<22){
+    search=await spotifyApi('/search?'+new URLSearchParams({q:song.title+' '+song.artist,type:'track',limit:'10'}));
+    tracks=search.tracks?.items||[];
+    tracks.sort((a,b)=>rankSong(song,b)-rankSong(song,a));
+   }
+   if(!tracks.length||rankSong(song,tracks[0])<22)throw new Error('Nie udało się dopasować nagrania w katalogu Spotify. Wybierz utwór ręcznie.');
+   uri=tracks[0].uri;
+  }
+  const d=await spotifyApi('/me/player/devices');
+  const available=(d.devices||[]).filter(v=>v.id&&!v.is_restricted);
+  if(!available.length)throw new Error('Spotify API działa, ale nie widzi urządzenia. Otwórz Spotify na iPhonie i ODTWÓRZ dowolną piosenkę; potem wróć do gry i odśwież urządzenia.');
+  const selection=$('spotifyDeviceSelect')?.value||'';
+  const device=available.find(v=>v.id===selection)||available.find(v=>v.is_active)||available[0];
+  if(!device.is_active) {
+   await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device.id],play:false})});
+  }
+  await spotifyApi('/me/player/play?device_id='+encodeURIComponent(device.id),{method:'PUT',body:JSON.stringify({uris:[uri],position_ms:0})});
+  // A successful HTTP 204 means that Spotify accepted the command, not that sound is audible.
   startedOnSpotify=true;
-  return active.name;
+  return device.name;
  }
+ async function diagnose(){
+  const report=$('spotifyDiagnostics'), select=$('spotifyDeviceSelect');
+  const notify=msg=>{if(report)report.textContent=msg;if($('game')&&!$('game').classList.contains('hidden'))feedback(msg);};
+  if(!isConnected()){
+   notify('❌ Brak autoryzacji Spotify. Wróć do ustawień i kliknij Połącz konto Spotify.');
+   return;
+  }
+  notify('⏳ Sprawdzam Spotify API i dostępne urządzenia…');
+  try{
+   await spotifyApi('/me');
+   const response=await spotifyApi('/me/player/devices');
+   const list=(response.devices||[]).filter(x=>x.id&&!x.is_restricted);
+   if(select){
+    const old=select.value;
+    select.replaceChildren();
+    for(const device of list){
+     const opt=document.createElement('option');opt.value=device.id;opt.textContent=(device.is_active?'▶ ':'')+device.name+' ('+device.type+')';select.appendChild(opt);
+    }
+    const chosen=list.find(x=>x.id===old)||list.find(x=>x.is_active)||list[0];
+    if(chosen)select.value=chosen.id;
+    select.disabled=!list.length;
+   }
+   if(!list.length){
+    notify('✅ Konto ma dostęp do API (brak błędu 403), ale Spotify nie widzi aktywnego odtwarzacza. Otwórz aplikację Spotify, włącz dowolny utwór i ponów test.');
+   } else {
+    const active=list.find(x=>x.is_active);
+    notify('✅ Spotify API działa. Dostępne urządzenia: '+list.map(x=>x.name+(x.is_active?' [aktywne]':'')).join(', ')+'. '+(active?'':'Wybierz urządzenie poniżej, a następnie naciśnij START.'));
+   }
+  }catch(e){
+   notify('❌ Test Spotify: '+e.message);
+  }
+ }
+
  async function pauseIfPlaying(){
   if(!startedOnSpotify)return;
   startedOnSpotify=false;
@@ -108,7 +154,7 @@
   const verifier=prefs.get('oauth-verifier'),client_id=prefs.get('client-id');
   prefs.del('oauth-state');prefs.del('oauth-verifier');prefs.del('oauth-since');
   if(!verifier||!client_id){status('Sesja logowania wygasła. Spróbuj ponownie.');return;}
-  try{await postToken({grant_type:'authorization_code',code,redirect_uri:redirectUri(),client_id,code_verifier:verifier});status('✅ Spotify połączone. Otwórz Spotify, odtwórz dowolny utwór i wróć do FILMSTER.');$('spotifyConfig').open=true;}
+  try{await postToken({grant_type:'authorization_code',code,redirect_uri:redirectUri(),client_id,code_verifier:verifier});status('🟡 Spotify zalogowane. Weryfikuję dostęp API…');$('spotifyConfig').open=true;await diagnose();}
   catch(e){status('Błąd połączenia: '+e.message);$('spotifyConfig').open=true;}
  }
  function disconnect(){
@@ -116,7 +162,7 @@
   startedOnSpotify=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
  }
  function setManualRound(b){manual=!!b;}
- const spotifyBridge={isConnected,isManualRound:()=>manual,setManualRound,play,pauseIfPlaying};
+ const spotifyBridge={isConnected,isManualRound:()=>manual,setManualRound,play,pauseIfPlaying,diagnose};
  window.FilmsterSpotify=spotifyBridge;
 
  // Short synthesized signals (not music recordings). Must be unlocked by a direct tap on iOS.
@@ -144,10 +190,13 @@
  function updatePanel(){
   if($('spotifyRedirectUri'))$('spotifyRedirectUri').textContent=redirectUri();
   if($('spotifyClientId'))$('spotifyClientId').value=prefs.get('client-id');
-  if(isConnected())status('✅ Spotify połączone. Otwórz aplikację Spotify i włącz dowolną piosenkę, potem wróć do gry.');
+  if(isConnected())status('🟡 Sesja Spotify zapisana. Sprawdzam, czy konto ma dostęp do Spotify API…');
  }
  $('spotifyConnect')?.addEventListener('click',()=>authorize().catch(e=>status(e.message)));
  $('spotifyDisconnect')?.addEventListener('click',disconnect);
+ $('spotifyTestConnection')?.addEventListener('click',diagnose);
+ $('spotifyCheckGame')?.addEventListener('click',diagnose);
+ if(isConnected() && !new URLSearchParams(location.search).has('code'))diagnose();
  $('testSound')?.addEventListener('click',()=>{
   window.FilmsterAudio.test();
   if($('audioStatus'))$('audioStatus').textContent='🔊 Słychać 3 sygnały? Jeśli nie, zwiększ głośność multimediów i wyłącz tryb cichy.';
