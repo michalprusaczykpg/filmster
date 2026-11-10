@@ -74,7 +74,7 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
     <div class="actions" style="margin-top:12px"><button id="spotifyConnect" type="button" class="spotify">Połącz konto Spotify</button><button id="spotifyDisconnect" type="button" class="quiet">Rozłącz</button></div>
     <p id="spotifyStatus" role="status" style="margin-top:12px">Nie połączono. Nadal możesz grać, otwierając utwory ręcznie w Spotify.</p>
     <button id="spotifyTestConnection" type="button" class="secondary" style="margin-top:10px">🔍 Sprawdź Spotify API i urządzenia</button>
-    <p style="margin-top:9px">Po zalogowaniu sprawdź dostęp. Jeśli pojawi się <b>HTTP 403</b>, upewnij się, że konto Spotify Premium jest dodane w Spotify Developer Dashboard → Users Management. Jeśli nie ma urządzeń, otwórz Spotify i odtwórz dowolny utwór.</p>
+    <p style="margin-top:9px">Po aktualizacji FILMSTER kliknij <b>Rozłącz</b>, a potem <b>Połącz konto Spotify</b> i zaakceptuj nowe uprawnienia. Następnie sprawdź API. Jeśli pojawi się <b>HTTP 403</b>, dodaj konto w Spotify Developer Dashboard → Users Management. Jeśli nie ma urządzeń, otwórz Spotify i odtwórz dowolny utwór.</p>
     <p>W Spotify włącz odtwarzanie dowolnego utworu na iPhonie lub komputerze, potem wróć do FILMSTER. Gra wyszuka piosenkę i wyśle polecenie odtwarzania do Spotify Connect. Niektóre nagrania lub urządzenia mogą być niedostępne.</p>
   </details>
   <button id="startGame" class="primary wide" type="button">▶ Rozpocznij grę</button><div id="appError" role="alert"></div>
@@ -193,7 +193,6 @@ async function countdown(){
    $('spotifyFeedback').textContent='⏳ Wyszukuję i uruchamiam piosenkę w Spotify…';
    try{const deviceName=await spotify.play(state.deck[state.index]);$('spotifyFeedback').textContent='✅ Spotify przyjęło polecenie odtwarzania na: '+deviceName+'. Jeśli nie ma dźwięku, sprawdź ten odtwarzacz i wybór urządzenia.';}
    catch(error){
-     spotify.setManualRound(true);
      $('spotifyFeedback').textContent='❌ START + Spotify: '+(error.message||'Błąd API Spotify')+' Sprawdź komunikat i listę urządzeń, potem spróbuj ponownie lub włącz utwór ręcznie.';
      $('countdownStart').disabled=false;return;
    }
