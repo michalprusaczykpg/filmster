@@ -30,7 +30,7 @@
   const verifier=randomUrl()+randomUrl();const challenge=b64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
   const state=randomUrl();prefs.set('oauth-verifier',verifier);prefs.set('oauth-state',state);prefs.set('oauth-since',Date.now());
   const url=new URL('https://accounts.spotify.com/authorize');
-  url.search=new URLSearchParams({client_id:clientId,response_type:'code',redirect_uri:redirectUri(),scope:'user-read-playback-state user-modify-playback-state',state,code_challenge_method:'S256',code_challenge:challenge}).toString();
+  url.search=new URLSearchParams({client_id:clientId,response_type:'code',redirect_uri:redirectUri(),scope:'user-read-private user-read-playback-state user-modify-playback-state',state,code_challenge_method:'S256',code_challenge:challenge}).toString();
   location.assign(url.toString());
  }
  async function postToken(form){
@@ -38,6 +38,7 @@
   const result=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(result.error_description||result.error||'Błąd logowania Spotify');
   store.set('access-token',result.access_token);
+  if(result.scope)store.set('scopes',result.scope);
   store.set('expiry',Date.now()+(Number(result.expires_in||3600)-60)*1000);
   if(result.refresh_token)store.set('refresh-token',result.refresh_token);
   return result.access_token;
@@ -57,7 +58,7 @@
   if(!response.ok){
    const msg=typeof data?.error==='object'?data.error.message:data.error;
    if(response.status===401)throw new Error('Sesja Spotify wygasła. Połącz konto jeszcze raz.');
-   if(response.status===403)throw new Error('HTTP 403 ['+path.split('?')[0]+']: Spotify odrzuciło dostęp do API. W Spotify Developer Dashboard → FILMSTER → Settings → Users Management dodaj e-mail konta, którym się logujesz. Wymagane jest Spotify Premium. Szczegóły Spotify: '+String(msg||'brak').slice(0,140));
+   if(response.status===403)throw new Error('HTTP 403 ['+path.split('?')[0]+']: Spotify odrzuciło dostęp. Sprawdź Users Management w Spotify Developer Dashboard i zaloguj się ponownie po aktualizacji uprawnień (także user-read-private). Szczegóły: '+String(msg||'brak').slice(0,140));
    if(response.status===404)throw new Error('HTTP 404 ['+path.split('?')[0]+']: Brak aktywnego odtwarzacza. Otwórz Spotify na iPhonie, puść dowolny utwór i wróć do FILMSTER. Szczegóły: '+String(msg||'brak').slice(0,120));
    if(response.status===429)throw new Error('Spotify ogranicza liczbę zapytań. Spróbuj ponownie za chwilę.');
    throw new Error('Spotify HTTP '+response.status+' ['+path.split('?')[0]+']: '+String(msg||'Nieznany błąd').slice(0,160));
@@ -112,6 +113,11 @@
    notify('❌ Brak autoryzacji Spotify. Wróć do ustawień i kliknij Połącz konto Spotify.');
    return;
   }
+  const granted=store.get('scopes');
+  if(granted&&!granted.split(' ').includes('user-read-private')){
+   notify('⚠️ Twoja sesja Spotify ma stare uprawnienia bez wyszukiwania utworów. Kliknij Rozłącz, następnie Połącz konto Spotify i zaakceptuj nowe uprawnienia.');
+   return;
+  }
   notify('⏳ Sprawdzam Spotify API i dostępne urządzenia…');
   try{
    await spotifyApi('/me');
@@ -158,7 +164,7 @@
   catch(e){status('Błąd połączenia: '+e.message);$('spotifyConfig').open=true;}
  }
  function disconnect(){
-  ['access-token','expiry','refresh-token','verifier','state'].forEach(k=>store.del(k));['oauth-state','oauth-verifier','oauth-since'].forEach(k=>prefs.del(k));
+  ['access-token','expiry','refresh-token','scopes','verifier','state'].forEach(k=>store.del(k));['oauth-state','oauth-verifier','oauth-since'].forEach(k=>prefs.del(k));
   startedOnSpotify=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
  }
  function setManualRound(b){manual=!!b;}
