@@ -73,6 +73,8 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
     <input type="text" id="spotifyClientId" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Wklej Client ID ze Spotify Developer Dashboard" style="width:100%">
     <div class="actions" style="margin-top:12px"><button id="spotifyConnect" type="button" class="spotify">Połącz konto Spotify</button><button id="spotifyDisconnect" type="button" class="quiet">Rozłącz</button></div>
     <p id="spotifyStatus" role="status" style="margin-top:12px">Nie połączono. Nadal możesz grać, otwierając utwory ręcznie w Spotify.</p>
+    <button id="spotifyTestConnection" type="button" class="secondary" style="margin-top:10px">🔍 Sprawdź Spotify API i urządzenia</button>
+    <p style="margin-top:9px">Po zalogowaniu sprawdź dostęp. Jeśli pojawi się <b>HTTP 403</b>, upewnij się, że konto Spotify Premium jest dodane w Spotify Developer Dashboard → Users Management. Jeśli nie ma urządzeń, otwórz Spotify i odtwórz dowolny utwór.</p>
     <p>W Spotify włącz odtwarzanie dowolnego utworu na iPhonie lub komputerze, potem wróć do FILMSTER. Gra wyszuka piosenkę i wyśle polecenie odtwarzania do Spotify Connect. Niektóre nagrania lub urządzenia mogą być niedostępne.</p>
   </details>
   <button id="startGame" class="primary wide" type="button">▶ Rozpocznij grę</button><div id="appError" role="alert"></div>
@@ -95,6 +97,12 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
         <button id="pauseTimer" class="secondary hidden">⏸ Pauza</button>
       </div>
       <p id="spotifyFeedback" class="stage-note" role="status" aria-live="polite">Sprawdzam połączenie Spotify…</p>
+      <div id="spotifyDeviceTools" class="info" style="margin:10px 0">
+        <label for="spotifyDeviceSelect" style="display:block;font-weight:750;margin-bottom:8px">🔊 Urządzenie Spotify do odtwarzania</label>
+        <select id="spotifyDeviceSelect" aria-label="Wybierz urządzenie Spotify" style="width:100%;max-width:100%;padding:10px" disabled><option value="">Sprawdź urządzenia przyciskiem poniżej</option></select>
+        <div class="actions" style="margin-top:10px"><button id="spotifyCheckGame" type="button" class="secondary">🔍 Sprawdź połączenie i urządzenia</button></div>
+        <p id="spotifyDiagnostics" role="status" aria-live="polite" style="margin:8px 0 0">Przed START sprawdź dostęp do Spotify API, potem wybierz urządzenie.</p>
+      </div>
       <div id="spotifyConnectWarning" class="info hidden" role="status" style="margin:12px 0;border:2px solid #f5bd76">
         <strong>⚠️ Spotify Premium nie jest połączone z FILMSTER.</strong>
         <p style="margin:6px 0">Samo posiadanie Premium nie uruchamia muzyki. Potrzebna jest autoryzacja Spotify poprzez Client ID aplikacji deweloperskiej. Bez tego START nie może włączyć piosenki.</p>
@@ -153,7 +161,7 @@ function refreshSpotifyRoundNote(){
  const manual=!!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound());
  $('countdownStart').textContent=isPremium&&connected&&!manual?'▶ 3 · 2 · 1 · START + Spotify':isPremium&&!connected&&!manual?'▶ START — wymaga połączenia Spotify':'▶ 3 · 2 · 1 · START — tylko czas';
  $('spotifyFeedback').textContent=isPremium
-  ?(connected?'✅ Konto Spotify połączone z FILMSTER. START spróbuje odtworzyć piosenkę na aktywnym urządzeniu Spotify.':'⚠️ Spotify Premium jest wybrane, ale konto NIE jest połączone. START nie może odtwarzać muzyki. Przejdź do trybu DJ albo połącz Spotify w ustawieniach.')
+  ?(connected?'🟡 Sesja Spotify zapisana. Stuknij „Sprawdź połączenie i urządzenia”, a dopiero potem START.':'⚠️ Spotify Premium jest wybrane, ale konto NIE jest połączone. START nie może odtwarzać muzyki. Przejdź do trybu DJ albo połącz Spotify w ustawieniach.')
   :'🎧 Tryb DJ: otwórz piosenkę w Spotify i włącz ją ręcznie. START uruchomi wyłącznie odliczanie.';
  $('spotifyConnectWarning').classList.toggle('hidden',!isPremium||connected||(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound()));
 }
@@ -183,10 +191,10 @@ async function countdown(){
  }
  if(getSpotifyMode()==='premium'&&spotify&&spotify.isConnected()&&!spotify.isManualRound()){
    $('spotifyFeedback').textContent='⏳ Wyszukuję i uruchamiam piosenkę w Spotify…';
-   try{await spotify.play(state.deck[state.index]);$('spotifyFeedback').textContent='✅ Spotify: muzyka powinna grać na aktywnym urządzeniu. Sprawdź głośność Spotify.';}
+   try{const deviceName=await spotify.play(state.deck[state.index]);$('spotifyFeedback').textContent='✅ Spotify przyjęło polecenie odtwarzania na: '+deviceName+'. Jeśli nie ma dźwięku, sprawdź ten odtwarzacz i wybór urządzenia.';}
    catch(error){
      spotify.setManualRound(true);
-     $('spotifyFeedback').textContent='⚠️ '+(error.message||'Nie udało się uruchomić Spotify')+' Odtwórz piosenkę ręcznie, a następnie kliknij ponownie „START”.';
+     $('spotifyFeedback').textContent='❌ START + Spotify: '+(error.message||'Błąd API Spotify')+' Sprawdź komunikat i listę urządzeń, potem spróbuj ponownie lub włącz utwór ręcznie.';
      $('countdownStart').disabled=false;return;
    }
  }
