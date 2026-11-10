@@ -115,7 +115,9 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
           <summary>⚙️ Urządzenie i diagnostyka (opcjonalnie)</summary>
           <label for="spotifyDeviceSelect" style="display:block;font-weight:750;margin:10px 0 8px">Urządzenie Spotify</label>
           <select id="spotifyDeviceSelect" aria-label="Wybierz urządzenie Spotify" style="width:100%;max-width:100%;padding:10px" disabled><option value="">Brak wykrytych urządzeń</option></select>
-          <p id="spotifyDiagnostics" role="status" aria-live="polite" style="margin:8px 0 0">Przygotowanie Spotify sprawdza listę urządzeń automatycznie.</p>
+          <div class="actions" style="margin-top:10px"><button id="spotifyRunDiagnostics" type="button" class="secondary">🔎 Sprawdź odpowiedzi Spotify API</button></div>
+          <p id="spotifyDiagnostics" role="status" aria-live="polite" style="margin:8px 0 0">Test pokaże, czy Spotify przyjmuje zapytania, nawet jeśli nie ma aktywnego odtwarzacza.</p>
+          <pre id="spotifyHttpLog" aria-label="Historia kodów odpowiedzi Spotify API" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;margin:10px 0 0;color:var(--muted)">Brak testu. Nie wyświetlamy tokenów ani danych logowania.</pre>
         </details>
       </div>
       <details id="spotifyManual" class="install-card" style="margin:10px 0">
@@ -357,4 +359,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=16"></script></body></html>
+</script><script src="./spotify.js?v=17"></script></body></html>
