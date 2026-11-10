@@ -62,7 +62,7 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
       <option value="premium">⭐ Spotify Premium — automatyczne odtwarzanie po połączeniu konta</option>
       <option value="free">🆓 Spotify Free — ręczne uruchamianie utworów</option>
     </select>
-    <p class="small" id="spotifyModeHelp" style="margin:8px 0 0" role="status">Premium: połącz swoje konto i uruchom Spotify na urządzeniu, aby FILMSTER sterował muzyką.</p>
+    <p class="small" id="spotifyModeHelp" style="margin:8px 0 0" role="status">Spotify Premium nie łączy się automatycznie. Funkcja odtwarzania wymaga osobnej autoryzacji w aplikacji Spotify Developer.</p>
   </div>
   <div class="actions" style="margin-bottom:14px"><button id="testSound" type="button" class="secondary">🔊 Sprawdź dźwięk odliczania</button><span id="audioStatus" class="small" role="status"></span></div>
   <details id="spotifyConfig" class="install-card">
@@ -94,7 +94,12 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
         <button id="countdownStart" class="primary">▶ 3 · 2 · 1 · START!</button>
         <button id="pauseTimer" class="secondary hidden">⏸ Pauza</button>
       </div>
-      <p id="spotifyFeedback" class="stage-note" role="status" aria-live="polite">Bez połączenia Spotify: DJ najpierw włącza utwór ręcznie. Po połączeniu Premium gra uruchomi odtwarzanie przy rozpoczęciu rundy.</p>
+      <p id="spotifyFeedback" class="stage-note" role="status" aria-live="polite">Sprawdzam połączenie Spotify…</p>
+      <div id="spotifyConnectWarning" class="info hidden" role="status" style="margin:12px 0;border:2px solid #f5bd76">
+        <strong>⚠️ Spotify Premium nie jest połączone z FILMSTER.</strong>
+        <p style="margin:6px 0">Samo posiadanie Premium nie uruchamia muzyki. Potrzebna jest autoryzacja Spotify poprzez Client ID aplikacji deweloperskiej. Bez tego START nie może włączyć piosenki.</p>
+        <button type="button" id="switchToDjMode" class="secondary">🎧 Graj ręcznie (tryb DJ)</button>
+      </div>
     </div>
     <div class="timeline-top"><div><div class="section-cap">Oś czasu</div><h2 id="timelineTitle" style="margin:0">Karty gracza</h2></div><span id="cardsCount" class="pill">1 karta</span></div>
     <p class="timeline-help" id="timelineHelp">Najpierw uruchom rundę. Potem kliknij „+” w miejscu, do którego pasuje nowa piosenka — od najstarszych do najnowszych.</p>
@@ -137,8 +142,8 @@ function syncSpotifyMode(){
  const isPremium=getSpotifyMode()==='premium';
  $('spotifyConfig').classList.toggle('hidden',!isPremium);
  $('spotifyModeHelp').textContent=isPremium
-  ?'Premium: połącz konto przez Spotify Developer i uruchom odtwarzacz Spotify. Wtedy gra sama wybierze piosenkę.'
-  :'Free: otwórz piosenkę ręcznie na telefonie, włącz ją w aplikacji Spotify, wróć do FILMSTER i rozpocznij rundę. Spotify Free może odtwarzać reklamy lub losowe utwory.';
+  ?'Premium nie wystarcza do automatycznego odtwarzania. Najpierw połącz FILMSTER z aplikacją Spotify Developer (Client ID + zgoda konta).'
+  :'Tryb DJ: otwórz utwór w Spotify, włącz go ręcznie, wróć do FILMSTER i dopiero rozpocznij odliczanie. Spotify Free może wybrać inny utwór lub odtworzyć reklamy.';
  if(state && state.phase==='ready')refreshSpotifyRoundNote();
 }
 function refreshSpotifyRoundNote(){
@@ -146,8 +151,9 @@ function refreshSpotifyRoundNote(){
  const connected=window.FilmsterSpotify&&window.FilmsterSpotify.isConnected();
  $('spotifyLink').textContent=isPremium?'🔎 Spotify — ręczne odtworzenie':'🆓 Otwórz piosenkę w Spotify Free';
  $('spotifyFeedback').textContent=isPremium
-  ?(connected?'🎵 Premium połączone: stuknij START, a gra uruchomi piosenkę na aktywnym urządzeniu Spotify.':'🎧 Połącz Premium w ustawieniach lub otwórz utwór ręcznie, a potem naciśnij START.')
-  :'🆓 Tryb Free: DJ otwiera piosenkę w Spotify, wybiera dokładny utwór, uruchamia go ręcznie i wraca do gry. START uruchamia odliczanie, nie steruje Spotify.';
+  ?(connected?'✅ Konto Spotify połączone z FILMSTER. START spróbuje odtworzyć piosenkę na aktywnym urządzeniu Spotify.':'⚠️ Spotify Premium jest wybrane, ale konto NIE jest połączone. START nie może odtwarzać muzyki. Przejdź do trybu DJ albo połącz Spotify w ustawieniach.')
+  :'🎧 Tryb DJ: otwórz piosenkę w Spotify i włącz ją ręcznie. START uruchomi wyłącznie odliczanie.';
+ $('spotifyConnectWarning').classList.toggle('hidden',!isPremium||connected||(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound()));
 }
 
 function refreshCount(){const count=selectedSongs().length;$('selectedCount').textContent=count+' piosenek';}
@@ -167,6 +173,12 @@ async function countdown(){
  const sound=window.FilmsterAudio;try{sound&&sound.unlock();}catch(_){}
  $('countdownStart').disabled=true;
  const spotify=window.FilmsterSpotify;
+ if(getSpotifyMode()==='premium'&&(!spotify||!spotify.isConnected())&&!(spotify&&spotify.isManualRound())){
+   $('spotifyFeedback').textContent='⚠️ Nie połączono konta Spotify z FILMSTER. START nie może uruchomić piosenki — przełącz na tryb DJ, włącz utwór ręcznie i dopiero rozpocznij rundę.';
+   show('spotifyConnectWarning',true);
+   $('countdownStart').disabled=false;
+   return;
+ }
  if(getSpotifyMode()==='premium'&&spotify&&spotify.isConnected()&&!spotify.isManualRound()){
    $('spotifyFeedback').textContent='⏳ Wyszukuję i uruchamiam piosenkę w Spotify…';
    try{await spotify.play(state.deck[state.index]);$('spotifyFeedback').textContent='✅ Spotify: muzyka powinna grać na aktywnym urządzeniu. Sprawdź głośność Spotify.';}
@@ -211,7 +223,9 @@ function newRound(){stopClocks();if(state.index>=state.rounds){endGame();return;
  $('spotifyLink').href=s.spotifyId?'https://open.spotify.com/track/'+encodeURIComponent(s.spotifyId):'https://open.spotify.com/search/'+encodeURIComponent(s.title+' '+s.artist);
  if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(false);
  refreshSpotifyRoundNote();
- $('clockLabel').textContent='Gotowi? Otwórz Spotify, potem rozpocznij odliczanie.';
+ $('clockLabel').textContent=(getSpotifyMode()==='premium'&&window.FilmsterSpotify&&window.FilmsterSpotify.isConnected())
+  ?'Spotify połączone — naciśnij START, aby spróbować uruchomić piosenkę.'
+  :'Włącz piosenkę ręcznie w Spotify (tryb DJ) lub najpierw połącz Spotify Premium.';
  $('countdownStart').disabled=false;show('countdownStart',true);show('pauseTimer',false);$('pauseTimer').textContent='⏸ Pauza';show('result',false);$('result').classList.remove('good','bad');$('bonus').textContent='+1 pkt — zgadnięty tytuł / film';$('nextRound').textContent=state.index+1===state.rounds?'Zobacz wyniki 🏆':'Następna runda →';
  renderClock();renderTimeline();
 }
@@ -234,7 +248,8 @@ $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names'
  show('setup',false);show('finish',false);show('game',true);newRound();try{window.scrollTo(0,0);}catch(_){}
 });
 $('countdownStart').addEventListener('click',countdown);
-$('spotifyLink').addEventListener('click',()=>{if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);});
+$('spotifyLink').addEventListener('click',()=>{if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);show('spotifyConnectWarning',false);$('spotifyFeedback').textContent='🎧 Wybrano ręczne odtwarzanie. Włącz piosenkę w Spotify, wróć do FILMSTER i naciśnij START.';});
+$('switchToDjMode').addEventListener('click',()=>{$('spotifyMode').value='free';if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);syncSpotifyMode();saveOptions();$('countdownStart').disabled=false;});
 $('pauseTimer').addEventListener('click',pauseTimer);
 $('timeline').addEventListener('click',ev=>{const element=ev.target.closest('[data-slot]');if(!element||!state||!['playing','paused'].includes(state.phase))return;state.choice=Number(element.dataset.slot);renderTimeline();});
 $('confirmPosition').addEventListener('click',()=>{if(!state||!['playing','paused'].includes(state.phase)||state.choice===null)return;finishAnswer(false);});
