@@ -131,6 +131,31 @@
   rememberDevice(device);
   return device;
  }
+ async function verifyPlayback(trackUri,deviceName){
+  // Spotify HTTP 204 confirms a command was accepted, not that the requested song is playing.
+  // Read Spotify's actual player state; IDs are compared without exposing them in the UI.
+  const id=trackUri.split(':').pop();
+  let reason='Brak aktualnego stanu Spotify.';
+  for(let i=0;i<6;i++){
+   await nap(i===0?450:550);
+   try{
+    const state=await spotifyApi('/me/player');
+    if(state?.is_playing===true && (state?.item?.uri===trackUri || state?.item?.id===id)){
+     startedOnSpotify=true;
+     return {verified:true,device:state?.device?.name||deviceName};
+    }
+    if(!state?.device)reason='Spotify nie pokazuje aktywnego urządzenia po poleceniu START.';
+    else if(state.is_playing===false)reason='Spotify ma aktywny odtwarzacz, lecz odtwarzanie jest wstrzymane.';
+    else if(state.is_playing===true && state?.item)reason='Spotify nadal odtwarza poprzedni utwór.';
+    else reason='Spotify jeszcze nie zwraca aktualnej piosenki.';
+   }catch(error){
+    reason='Nie udało się odczytać odtwarzacza: '+error.message;
+    if(error.status===403||error.status===401)break;
+   }
+  }
+  startedOnSpotify=false;
+  return {verified:false,device:deviceName,message:reason};
+ }
  async function play(song){
   if(!isConnected())throw new Error('Brak autoryzacji Spotify.');
   // Do track lookup in advance where possible, reducing iOS time spent in background.
@@ -150,7 +175,8 @@
    return d?.name||prefs.get('device-name')||'aktywne urządzenie Spotify';
   };
   try{
-   return await attempt(device,true);
+   const name=await attempt(device,true);
+   return await verifyPlayback(uri,name);
   }catch(error){
    if(error.status!==404)throw error;
   }
@@ -164,8 +190,10 @@
   if(saved&&!attempts.some(d=>d?.id===saved))attempts.push({id:saved,name:prefs.get('device-name')||'zapisane urządzenie',is_active:false});
   let lastError=null;
   for(const candidate of attempts){
-   try{return await attempt(candidate,!!candidate);}
-   catch(e){lastError=e;if(e.status!==404)throw e;}
+   try{
+    const name=await attempt(candidate,!!candidate);
+    return await verifyPlayback(uri,name);
+   }catch(e){lastError=e;if(e.status!==404)throw e;}
   }
   throw new Error('Spotify HTTP 404: urządzenie iPhone przestało odpowiadać po przełączeniu do FILMSTER. Wybrany odtwarzacz zapamiętałem, ale Spotify nie daje teraz sterowania. Otwórz Spotify, włącz piosenkę i wróć do gry albo wybierz ręczny tryb DJ. '+(lastError?.message||''));
  }
@@ -269,7 +297,7 @@
   startedOnSpotify=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
  }
  function setManualRound(b){manual=!!b;}
- const spotifyBridge={isConnected,isManualRound:()=>manual,setManualRound,play,pauseIfPlaying,diagnose,activateDevice,prime};
+ const spotifyBridge={isConnected,hasDevice:()=>!!prefs.get('device-id'),isManualRound:()=>manual,setManualRound,play,pauseIfPlaying,diagnose,activateDevice,prime};
  window.FilmsterSpotify=spotifyBridge;
 
  // Short synthesized signals (not music recordings). Must be unlocked by a direct tap on iOS.
