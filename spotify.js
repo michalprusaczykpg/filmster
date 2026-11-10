@@ -293,7 +293,13 @@
    return true;
   }catch(e){console.info('Audio unavailable:',e.message);return false;}
  }
- window.FilmsterAudio={unlock:()=>getAudio(),tick:n=>beep(n===1?740:555,.17,.35),start:()=>{beep(1000,.28,.38);setTimeout(()=>beep(1270,.18,.25),130);},test:()=>{beep(600,.16,.36);setTimeout(()=>beep(850,.16,.36),250);setTimeout(()=>beep(1140,.23,.36),500);}};
+ // Releasing AudioContext avoids retaining iOS audio focus while Spotify plays.
+ async function releaseAudio(){
+  if(!ctx)return;
+  const existing=ctx;ctx=null;
+  try{if(existing.state!=='closed')await existing.close();}catch(e){console.info('Audio release:',e.message);}
+ }
+ window.FilmsterAudio={unlock:()=>getAudio(),release:releaseAudio,tick:n=>beep(n===1?740:555,.17,.35),start:()=>{beep(1000,.28,.38);setTimeout(()=>beep(1270,.18,.25),130);},test:()=>{beep(600,.16,.36);setTimeout(()=>beep(850,.16,.36),250);setTimeout(()=>beep(1140,.23,.36),500);}};
  function updatePanel(){
   if($('spotifyRedirectUri'))$('spotifyRedirectUri').textContent=redirectUri();
   if($('spotifyClientId'))$('spotifyClientId').value=prefs.get('client-id');
@@ -310,7 +316,7 @@
  $('spotifyDeviceSelect')?.addEventListener('change',()=>{const el=$('spotifyDeviceSelect');if(el&&el.value){prefs.set('device-id',el.value);prefs.set('device-name',el.selectedOptions?.[0]?.textContent||'Spotify');const note=$('spotifyActivationStatus');if(note)note.textContent='✅ Wybrane urządzenie: '+(el.selectedOptions?.[0]?.textContent||'Spotify')+'. Możesz nacisnąć START.';}});
  $('testSound')?.addEventListener('click',()=>{
   window.FilmsterAudio.test();
-  if($('audioStatus'))$('audioStatus').textContent='🔊 Słychać 3 sygnały? Jeśli nie, zwiększ głośność multimediów i wyłącz tryb cichy.';
+  if($('audioStatus'))$('audioStatus').textContent='🔊 To tylko test. Podczas rund odliczanie jest wizualne, aby nie zatrzymywać muzyki Spotify na iPhonie.';
  });
  updatePanel();
  handleCallback().catch(e=>{status('Spotify: '+e.message);$('spotifyConfig').open=true;});
