@@ -103,7 +103,8 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
       <div class="timer-label" id="clockLabel">Gotowi? Otwórz Spotify, potem rozpocznij odliczanie.</div>
       <div class="timer-progress"><div id="timerBar"></div></div>
       <div class="actions" style="justify-content:center">
-        <a id="spotifyLink" class="spotify" href="https://open.spotify.com" rel="noopener noreferrer" target="_blank">🔎 Otwórz w Spotify</a>
+        <a id="spotifyActivateLink" class="secondary hidden" href="https://open.spotify.com/" rel="noopener noreferrer" target="_blank">🎧 Otwórz Spotify — aktywuj odtwarzacz</a>
+        <a id="spotifyLink" class="spotify" href="https://open.spotify.com/search/" rel="noopener noreferrer" target="_blank">🔎 Znajdź wylosowany utwór (ręcznie)</a>
         <button id="countdownStart" class="primary">▶ 3 · 2 · 1 · START!</button>
         <button id="pauseTimer" class="secondary hidden">⏸ Pauza</button>
       </div>
@@ -182,12 +183,13 @@ function syncSpotifyMode(){
 function refreshSpotifyRoundNote(){
  const isPremium=getSpotifyMode()==='premium';
  const connected=window.FilmsterSpotify&&window.FilmsterSpotify.isConnected();
- $('spotifyLink').textContent=isPremium?'↗ Otwórz Spotify (aktywuj urządzenie)':'↗ Otwórz utwór w Spotify (ręcznie)';
+ $('spotifyLink').textContent='🔎 Wylosowany utwór — otwórz ręcznie';
+ show('spotifyActivateLink',isPremium);
  const manual=!!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound());
  $('countdownStart').textContent=isPremium&&connected&&!manual?'▶ 3 · 2 · 1 · START + Spotify':isPremium&&!connected&&!manual?'▶ START — wymaga połączenia Spotify':'▶ 3 · 2 · 1 · START — tylko czas';
  $('spotifyFeedback').textContent=isPremium
-  ?(connected?'🟡 Sesja Spotify zapisana. Stuknij „Sprawdź połączenie i urządzenia”, a dopiero potem START.':'⚠️ Spotify Premium jest wybrane, ale konto NIE jest połączone. START nie może odtwarzać muzyki. Przejdź do trybu DJ albo połącz Spotify w ustawieniach.')
-  :'🎧 Tryb DJ: otwórz piosenkę w Spotify i włącz ją ręcznie. START uruchomi wyłącznie odliczanie.';
+  ?(connected?(manual?'🎵 Ręczny DJ: włącz utwór w Spotify, wróć i naciśnij START — tylko odliczanie.':'🟡 Konto połączone. Jeśli odtwarzacz jest aktywny, START spróbuje uruchomić piosenkę. „Otwórz Spotify — aktywuj” nie przełącza gry na DJ.'):'⚠️ Konto Spotify niepołączone. Możesz wybrać ręcznie utwór i uruchomić odliczanie.')
+  :'🎧 Tryb DJ: wyszukaj bieżący utwór, włącz go w Spotify i wróć do gry. START uruchamia tylko odliczanie.';
  $('spotifyConnectWarning').classList.toggle('hidden',!isPremium||connected||(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound()));
 }
 
@@ -271,9 +273,9 @@ function newRound(){stopClocks();if(state.index>=state.rounds){endGame();return;
  $('roundLabel').textContent='Runda '+(state.index+1)+' z '+state.rounds;
  $('activeLabel').textContent='🎤 '+activePlayer().name;
  $('packLabel').textContent=pack.icon+' '+pack.label;
- $('spotifyLink').href=getSpotifyMode()==='premium'
-  ?'https://open.spotify.com/'
-  :(s.spotifyId?'https://open.spotify.com/track/'+encodeURIComponent(s.spotifyId):'https://open.spotify.com/search/'+encodeURIComponent(s.title+' '+s.artist));
+ $('spotifyLink').href=s.spotifyId
+  ?'https://open.spotify.com/track/'+encodeURIComponent(s.spotifyId)
+  :'https://open.spotify.com/search/'+encodeURIComponent(s.title+' '+s.artist);
  if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(false);
  refreshSpotifyRoundNote();
  $('clockLabel').textContent=(getSpotifyMode()==='premium'&&window.FilmsterSpotify&&window.FilmsterSpotify.isConnected())
@@ -304,14 +306,14 @@ $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names'
  show('setup',false);show('finish',false);show('game',true);newRound();try{window.scrollTo(0,0);}catch(_){}
 });
 $('countdownStart').addEventListener('click',countdown);
+$('spotifyActivateLink').addEventListener('click',()=>{
+ $('spotifyFeedback').textContent='🎧 Uruchom dowolną piosenkę w aplikacji Spotify, wróć tutaj i kliknij START + Spotify. Nie zatrzymuj odtwarzania przed powrotem.';
+});
 $('spotifyLink').addEventListener('click',()=>{
- const premium=getSpotifyMode()==='premium';
- if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(!premium);
+ if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);
  show('spotifyConnectWarning',false);
- $('spotifyFeedback').textContent=premium
-  ?'🎵 Otwórz Spotify i odtwórz dowolny utwór, aby aktywować urządzenie. Po powrocie naciśnij START + Spotify — FILMSTER spróbuje automatycznie uruchomić wylosowaną piosenkę.'
-  :'🎧 Tryb DJ. Włącz piosenkę ręcznie w Spotify, wróć do FILMSTER i naciśnij START.';
  refreshSpotifyRoundNote();
+ $('spotifyFeedback').textContent='🎵 Tryb DJ dla tej rundy: w Spotify wyszukaj i WŁĄCZ wylosowany utwór. Po powrocie START uruchomi samo odliczanie (bez ponownego wysyłania polecenia do Spotify).';
 });
 $('switchToDjMode').addEventListener('click',()=>{$('spotifyMode').value='free';if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);syncSpotifyMode();saveOptions();$('countdownStart').disabled=false;});
 $('pauseTimer').addEventListener('click',pauseTimer);
@@ -341,4 +343,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js"></script></body></html>
+</script><script src="./spotify.js?v=11"></script></body></html>
