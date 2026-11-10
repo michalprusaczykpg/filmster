@@ -75,6 +75,18 @@
   if(gotArtist.includes(artist))result+=45;
   return result;
  }
+ async function playbackDevices(){
+  // Spotify can expose the active phone via /me/player even if /devices is empty.
+  const devices=await spotifyApi('/me/player/devices');
+  const current=await spotifyApi('/me/player');
+  const list=(devices.devices||[]).filter(d=>d.id&&!d.is_restricted);
+  const active=current?.device;
+  if(active&&!active.is_restricted){
+   if(active.id&&!list.some(d=>d.id===active.id))list.unshift({...active,is_active:true});
+   if(!active.id&&active.is_active)list.unshift({...active,id:'__active__',name:active.name||'Bieżące urządzenie Spotify',is_active:true});
+  }
+  return {list,current};
+ }
  async function play(song){
   if(!isConnected())throw new Error('Brak sesji Spotify — najpierw połącz konto.');
   let uri='';
@@ -93,15 +105,15 @@
    if(!tracks.length||rankSong(song,tracks[0])<22)throw new Error('Nie udało się dopasować nagrania w katalogu Spotify. Wybierz utwór ręcznie.');
    uri=tracks[0].uri;
   }
-  const d=await spotifyApi('/me/player/devices');
-  const available=(d.devices||[]).filter(v=>v.id&&!v.is_restricted);
-  if(!available.length)throw new Error('Spotify API działa, ale nie widzi urządzenia. Otwórz Spotify na iPhonie i ODTWÓRZ dowolną piosenkę; potem wróć do gry i odśwież urządzenia.');
+  const {list}=await playbackDevices();
+  if(!list.length)throw new Error('Spotify API nie widzi urządzenia w /me/player ani /me/player/devices. Uruchom utwór w Spotify i wróć od razu do FILMSTER. Jeśli nadal nie działa, uruchom Spotify na komputerze lub w Spotify Web Player i wybierz je do odtwarzania.');
   const selection=$('spotifyDeviceSelect')?.value||'';
-  const device=available.find(v=>v.id===selection)||available.find(v=>v.is_active)||available[0];
-  if(!device.is_active) {
+  const device=list.find(v=>v.id===selection)||list.find(v=>v.is_active)||list[0];
+  if(!device.is_active&&device.id!=='__active__'){
    await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device.id],play:false})});
   }
-  await spotifyApi('/me/player/play?device_id='+encodeURIComponent(device.id),{method:'PUT',body:JSON.stringify({uris:[uri],position_ms:0})});
+  const playPath='/me/player/play'+(device.id==='__active__'?'':'?device_id='+encodeURIComponent(device.id));
+  await spotifyApi(playPath,{method:'PUT',body:JSON.stringify({uris:[uri],position_ms:0})});
   // A successful HTTP 204 means that Spotify accepted the command, not that sound is audible.
   startedOnSpotify=true;
   return device.name;
@@ -121,8 +133,7 @@
   notify('⏳ Sprawdzam Spotify API i dostępne urządzenia…');
   try{
    await spotifyApi('/me');
-   const response=await spotifyApi('/me/player/devices');
-   const list=(response.devices||[]).filter(x=>x.id&&!x.is_restricted);
+   const {list}=await playbackDevices();
    if(select){
     const old=select.value;
     select.replaceChildren();
@@ -134,10 +145,10 @@
     select.disabled=!list.length;
    }
    if(!list.length){
-    notify('✅ Konto ma dostęp do API (brak błędu 403), ale Spotify nie widzi aktywnego odtwarzacza. Otwórz aplikację Spotify, włącz dowolny utwór i ponów test.');
+    notify('🟡 Konto Spotify ma dostęp do API, ale oba źródła — lista Spotify Connect oraz bieżący odtwarzacz — nie wskazują urządzenia. Włącz piosenkę w aplikacji Spotify, przejdź szybko do FILMSTER i kliknij Sprawdź ponownie. Alternatywa: włącz Spotify na komputerze lub open.spotify.com, pozostaw odtwarzanie i wróć do gry.');
    } else {
     const active=list.find(x=>x.is_active);
-    notify('✅ Spotify API działa. Dostępne urządzenia: '+list.map(x=>x.name+(x.is_active?' [aktywne]':'')).join(', ')+'. '+(active?'':'Wybierz urządzenie poniżej, a następnie naciśnij START.'));
+    notify('✅ Spotify API działa. Dostępne urządzenia: '+list.map(x=>x.name+(x.is_active?' [aktywne]':'')).join(', ')+'. '+(active?'Możesz nacisnąć START + Spotify.':'Wybierz urządzenie poniżej, a następnie naciśnij START + Spotify.'));
    }
   }catch(e){
    notify('❌ Test Spotify: '+e.message);
