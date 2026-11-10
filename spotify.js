@@ -12,6 +12,9 @@
   del(k){try{localStorage.removeItem('filmster-spotify-'+k)}catch(_){}}
  };
  let manual=false, startedOnSpotify=false;
+ const trackCache=new Map();
+ const nap=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ const rememberDevice=d=>{if(d&&d.id&&d.id!=='__active__'){prefs.set('device-id',d.id);prefs.set('device-name',d.name||'Spotify');}};
  const redirectUri=()=>location.origin+location.pathname;
  const status=(s)=>{if($('spotifyStatus'))$('spotifyStatus').textContent=s;};
  const feedback=(s)=>{if($('spotifyFeedback'))$('spotifyFeedback').textContent=s;};
@@ -59,7 +62,7 @@
    const msg=typeof data?.error==='object'?data.error.message:data.error;
    if(response.status===401)throw new Error('Sesja Spotify wygasła. Połącz konto jeszcze raz.');
    if(response.status===403)throw new Error('HTTP 403 ['+path.split('?')[0]+']: Spotify odrzuciło dostęp. Sprawdź Users Management w Spotify Developer Dashboard i zaloguj się ponownie po aktualizacji uprawnień (także user-read-private). Szczegóły: '+String(msg||'brak').slice(0,140));
-   if(response.status===404)throw new Error('HTTP 404 ['+path.split('?')[0]+']: Brak aktywnego odtwarzacza. Otwórz Spotify na iPhonie, puść dowolny utwór i wróć do FILMSTER. Szczegóły: '+String(msg||'brak').slice(0,120));
+   if(response.status===404){const error=new Error('HTTP 404 ['+path.split('?')[0]+']: '+String(msg||'Brak aktywnego odtwarzacza').slice(0,130));error.status=404;throw error;}
    if(response.status===429)throw new Error('Spotify ogranicza liczbę zapytań. Spróbuj ponownie za chwilę.');
    throw new Error('Spotify HTTP '+response.status+' ['+path.split('?')[0]+']: '+String(msg||'Nieznany błąd').slice(0,160));
   }
@@ -76,52 +79,109 @@
   return result;
  }
  async function playbackDevices(){
-  // Spotify can expose the active phone via /me/player even if /devices is empty.
-  const devices=await spotifyApi('/me/player/devices');
-  const current=await spotifyApi('/me/player');
-  const list=(devices.devices||[]).filter(d=>d.id&&!d.is_restricted);
-  const active=current?.device;
+  // Two Spotify endpoints can disagree on iPhone; use both, not just the device list.
+  const [devices,current]=await Promise.allSettled([
+   spotifyApi('/me/player/devices'),spotifyApi('/me/player')
+  ]);
+  if(devices.status==='rejected'&&current.status==='rejected')throw devices.reason;
+  const list=devices.status==='fulfilled'?(devices.value.devices||[]).filter(d=>d.id&&!d.is_restricted):[];
+  const active=current.status==='fulfilled'?current.value?.device:null;
   if(active&&!active.is_restricted){
-   if(active.id&&!list.some(d=>d.id===active.id))list.unshift({...active,is_active:true});
-   if(!active.id&&active.is_active)list.unshift({...active,id:'__active__',name:active.name||'Bieżące urządzenie Spotify',is_active:true});
+   const match=list.find(d=>d.id===active.id);
+   if(match)match.is_active=true;
+   else if(active.id)list.unshift({...active,is_active:true});
+   else if(active.is_active)list.unshift({...active,id:'__active__',name:active.name||'Bieżące urządzenie Spotify',is_active:true});
   }
-  return {list,current};
+  return {list,current:current.status==='fulfilled'?current.value:null};
+ }
+ async function resolveTrack(song){
+  const key=String(song.spotifyId||song.title+'|'+song.artist);
+  if(trackCache.has(key))return trackCache.get(key);
+  const work=(async()=>{
+   if(song.spotifyId&&/^[a-zA-Z0-9]{22}$/.test(song.spotifyId))return 'spotify:track:'+song.spotifyId;
+   let tracks=[];
+   for(const q of ['track:'+song.title+' artist:'+song.artist,song.title+' '+song.artist]){
+    const response=await spotifyApi('/search?'+new URLSearchParams({q,type:'track',limit:'10'}));
+    tracks=(response.tracks?.items||[]).sort((a,b)=>rankSong(song,b)-rankSong(song,a));
+    if(tracks.length&&rankSong(song,tracks[0])>=22)break;
+   }
+   if(!tracks.length||rankSong(song,tracks[0])<22)throw new Error('Spotify nie znalazło właściwego nagrania. Skorzystaj z ręcznego przycisku Spotify.');
+   return tracks[0].uri;
+  })();
+  trackCache.set(key,work);
+  try{return await work;}catch(e){trackCache.delete(key);throw e;}
+ }
+ function prime(song){
+  if(!isConnected()||!song)return Promise.resolve();
+  return resolveTrack(song).catch(()=>{});
+ }
+ function selectAndRemember(list){
+  const requested=$('spotifyDeviceSelect')?.value||'';
+  const saved=prefs.get('device-id');
+  const device=list.find(d=>d.id===requested)||list.find(d=>d.id===saved)||list.find(d=>d.is_active)||list[0]||null;
+  rememberDevice(device);
+  return device;
  }
  async function play(song){
-  if(!isConnected())throw new Error('Brak sesji Spotify — najpierw połącz konto.');
-  let uri='';
-  if(song.spotifyId && /^[a-zA-Z0-9]{22}$/.test(song.spotifyId)) {
-   uri='spotify:track:'+song.spotifyId;
-  } else {
-   const q='track:'+song.title+' artist:'+song.artist;
-   let search=await spotifyApi('/search?'+new URLSearchParams({q,type:'track',limit:'10'}));
-   let tracks=search.tracks?.items||[];
-   tracks.sort((a,b)=>rankSong(song,b)-rankSong(song,a));
-   if(!tracks.length||rankSong(song,tracks[0])<22){
-    search=await spotifyApi('/search?'+new URLSearchParams({q:song.title+' '+song.artist,type:'track',limit:'10'}));
-    tracks=search.tracks?.items||[];
-    tracks.sort((a,b)=>rankSong(song,b)-rankSong(song,a));
+  if(!isConnected())throw new Error('Brak autoryzacji Spotify.');
+  // Do track lookup in advance where possible, reducing iOS time spent in background.
+  const uri=await resolveTrack(song);
+  let {list}=await playbackDevices();
+  let device=selectAndRemember(list);
+  const body=JSON.stringify({uris:[uri],position_ms:0});
+  const attempt=async(d,transfer=false)=>{
+   if(d&&d.id!=='__active__'&&transfer&&!d.is_active){
+    await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[d.id],play:true})});
+    await nap(700); // Spotify Connect may need time after transfer.
    }
-   if(!tracks.length||rankSong(song,tracks[0])<22)throw new Error('Nie udało się dopasować nagrania w katalogu Spotify. Wybierz utwór ręcznie.');
-   uri=tracks[0].uri;
+   const path='/me/player/play'+(d?.id&&d.id!=='__active__'?'?device_id='+encodeURIComponent(d.id):'');
+   await spotifyApi(path,{method:'PUT',body});
+   startedOnSpotify=true;
+   rememberDevice(d);
+   return d?.name||prefs.get('device-name')||'aktywne urządzenie Spotify';
+  };
+  try{
+   return await attempt(device,true);
+  }catch(error){
+   if(error.status!==404)throw error;
   }
-  const {list}=await playbackDevices();
-  const selection=$('spotifyDeviceSelect')?.value||'';
-  const device=list.find(v=>v.id===selection)||list.find(v=>v.is_active)||list[0]||null;
-  if(device&&!device.is_active&&device.id!=='__active__'){
-   await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device.id],play:false})});
+  // The previously visible iPhone can go offline when the Spotify app is backgrounded.
+  // Refresh device IDs and try current active playback, then the freshest selected ID.
+  await nap(350);
+  ({list}=await playbackDevices());
+  device=selectAndRemember(list);
+  const attempts=[null,device];
+  const saved=prefs.get('device-id');
+  if(saved&&!attempts.some(d=>d?.id===saved))attempts.push({id:saved,name:prefs.get('device-name')||'zapisane urządzenie',is_active:false});
+  let lastError=null;
+  for(const candidate of attempts){
+   try{return await attempt(candidate,!!candidate);}
+   catch(e){lastError=e;if(e.status!==404)throw e;}
   }
-  // Without an explicit device_id Spotify targets its active player.
-  // This attempt is useful even when /me/player/devices returns an empty list.
-  const playPath='/me/player/play'+(device&&device.id!=='__active__'?'?device_id='+encodeURIComponent(device.id):'');
-  await spotifyApi(playPath,{method:'PUT',body:JSON.stringify({uris:[uri],position_ms:0})});
-  // HTTP 204 confirms command accepted, not that the sound became audible.
-  startedOnSpotify=true;
-  return device?.name||'ostatnio aktywne urządzenie Spotify';
+  throw new Error('Spotify HTTP 404: urządzenie iPhone przestało odpowiadać po przełączeniu do FILMSTER. Wybrany odtwarzacz zapamiętałem, ale Spotify nie daje teraz sterowania. Otwórz Spotify, włącz piosenkę i wróć do gry albo wybierz ręczny tryb DJ. '+(lastError?.message||''));
  }
- async function diagnose(){
+ async function activateDevice(){
+  const report=$('spotifyDiagnostics');
+  const notify=msg=>{if(report)report.textContent=msg;status(msg);};
+  if(!isConnected()){notify('❌ Najpierw połącz konto Spotify Premium.');return;}
+  notify('⏳ Zapamiętuję odtwarzacz Spotify…');
+  try{
+   const {list}=await playbackDevices();
+   if(!list.length){notify('⚠️ Spotify nie udostępnia teraz urządzenia. Włącz dowolny utwór w aplikacji Spotify i wróć do FILMSTER.');return;}
+   const selected=selectAndRemember(list);
+   if(!selected){notify('⚠️ Nie wybrano urządzenia Spotify.');return;}
+   if(!selected.is_active&&selected.id!=='__active__'){
+    await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[selected.id],play:true})});
+    await nap(550);
+   }
+   notify('✅ Odtwarzacz „'+selected.name+'” zapamiętany na tym urządzeniu. Teraz możesz naciskać START w kolejnych rundach. Jeśli iPhone się uśpi lub Spotify go rozłączy, może być konieczne ponowne uruchomienie Spotify.');
+   await diagnose(false);
+  }catch(e){notify('❌ Nie udało się aktywować: '+e.message);}
+ }
+
+ async function diagnose(writeFeedback=true){
   const report=$('spotifyDiagnostics'), select=$('spotifyDeviceSelect');
-  const notify=msg=>{if(report)report.textContent=msg;if($('game')&&!$('game').classList.contains('hidden'))feedback(msg);};
+  const notify=msg=>{if(report)report.textContent=msg;status(msg);if(writeFeedback&&$('game')&&!$('game').classList.contains('hidden'))feedback(msg);};
   if(!isConnected()){
    notify('❌ Brak autoryzacji Spotify. Wróć do ustawień i kliknij Połącz konto Spotify.');
    return;
@@ -136,13 +196,13 @@
    await spotifyApi('/me');
    const {list}=await playbackDevices();
    if(select){
-    const old=select.value;
+    const old=select.value||prefs.get('device-id');
     select.replaceChildren();
     for(const device of list){
      const opt=document.createElement('option');opt.value=device.id;opt.textContent=(device.is_active?'▶ ':'')+device.name+' ('+device.type+')';select.appendChild(opt);
     }
     const chosen=list.find(x=>x.id===old)||list.find(x=>x.is_active)||list[0];
-    if(chosen)select.value=chosen.id;
+    if(chosen){select.value=chosen.id;rememberDevice(chosen);}
     select.disabled=!list.length;
    }
    if(!list.length){
@@ -177,10 +237,11 @@
  }
  function disconnect(){
   ['access-token','expiry','refresh-token','scopes','verifier','state'].forEach(k=>store.del(k));['oauth-state','oauth-verifier','oauth-since'].forEach(k=>prefs.del(k));
+  prefs.del('device-id');prefs.del('device-name');trackCache.clear();
   startedOnSpotify=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
  }
  function setManualRound(b){manual=!!b;}
- const spotifyBridge={isConnected,isManualRound:()=>manual,setManualRound,play,pauseIfPlaying,diagnose};
+ const spotifyBridge={isConnected,isManualRound:()=>manual,setManualRound,play,pauseIfPlaying,diagnose,activateDevice,prime};
  window.FilmsterSpotify=spotifyBridge;
 
  // Short synthesized signals (not music recordings). Must be unlocked by a direct tap on iOS.
@@ -212,8 +273,10 @@
  }
  $('spotifyConnect')?.addEventListener('click',()=>authorize().catch(e=>status(e.message)));
  $('spotifyDisconnect')?.addEventListener('click',disconnect);
- $('spotifyTestConnection')?.addEventListener('click',diagnose);
- $('spotifyCheckGame')?.addEventListener('click',diagnose);
+ $('spotifyTestConnection')?.addEventListener('click',()=>diagnose());
+ $('spotifyCheckGame')?.addEventListener('click',()=>diagnose());
+ $('spotifyActivateOnce')?.addEventListener('click',activateDevice);
+ $('spotifyDeviceSelect')?.addEventListener('change',()=>{const el=$('spotifyDeviceSelect');if(el&&el.value){prefs.set('device-id',el.value);prefs.set('device-name',el.selectedOptions?.[0]?.textContent||'Spotify');status('Wybrano urządzenie Spotify: '+(el.selectedOptions?.[0]?.textContent||''));}});
  if(isConnected() && !new URLSearchParams(location.search).has('code'))diagnose();
  $('testSound')?.addEventListener('click',()=>{
   window.FilmsterAudio.test();
