@@ -106,17 +106,18 @@
    uri=tracks[0].uri;
   }
   const {list}=await playbackDevices();
-  if(!list.length)throw new Error('Spotify API nie widzi urządzenia w /me/player ani /me/player/devices. Uruchom utwór w Spotify i wróć od razu do FILMSTER. Jeśli nadal nie działa, uruchom Spotify na komputerze lub w Spotify Web Player i wybierz je do odtwarzania.');
   const selection=$('spotifyDeviceSelect')?.value||'';
-  const device=list.find(v=>v.id===selection)||list.find(v=>v.is_active)||list[0];
-  if(!device.is_active&&device.id!=='__active__'){
+  const device=list.find(v=>v.id===selection)||list.find(v=>v.is_active)||list[0]||null;
+  if(device&&!device.is_active&&device.id!=='__active__'){
    await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[device.id],play:false})});
   }
-  const playPath='/me/player/play'+(device.id==='__active__'?'':'?device_id='+encodeURIComponent(device.id));
+  // Without an explicit device_id Spotify targets its active player.
+  // This attempt is useful even when /me/player/devices returns an empty list.
+  const playPath='/me/player/play'+(device&&device.id!=='__active__'?'?device_id='+encodeURIComponent(device.id):'');
   await spotifyApi(playPath,{method:'PUT',body:JSON.stringify({uris:[uri],position_ms:0})});
-  // A successful HTTP 204 means that Spotify accepted the command, not that sound is audible.
+  // HTTP 204 confirms command accepted, not that the sound became audible.
   startedOnSpotify=true;
-  return device.name;
+  return device?.name||'ostatnio aktywne urządzenie Spotify';
  }
  async function diagnose(){
   const report=$('spotifyDiagnostics'), select=$('spotifyDeviceSelect');
@@ -145,7 +146,7 @@
     select.disabled=!list.length;
    }
    if(!list.length){
-    notify('🟡 Konto Spotify ma dostęp do API, ale oba źródła — lista Spotify Connect oraz bieżący odtwarzacz — nie wskazują urządzenia. Włącz piosenkę w aplikacji Spotify, przejdź szybko do FILMSTER i kliknij Sprawdź ponownie. Alternatywa: włącz Spotify na komputerze lub open.spotify.com, pozostaw odtwarzanie i wróć do gry.');
+    notify('🟡 Konto ma dostęp do Spotify API, ale lista urządzeń jest pusta. Włącz dowolny utwór w Spotify, wróć do FILMSTER i kliknij START + Spotify. Gra spróbuje odtwarzać na ostatnio aktywnym urządzeniu nawet bez ID. Jeśli Spotify odpowie HTTP 404, nie widzi aktywnego odtwarzacza. Możesz spróbować także Spotify Web Player na komputerze.');
    } else {
     const active=list.find(x=>x.is_active);
     notify('✅ Spotify API działa. Dostępne urządzenia: '+list.map(x=>x.name+(x.is_active?' [aktywne]':'')).join(', ')+'. '+(active?'Możesz nacisnąć START + Spotify.':'Wybierz urządzenie poniżej, a następnie naciśnij START + Spotify.'));
