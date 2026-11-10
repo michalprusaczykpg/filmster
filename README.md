@@ -38,4 +38,10 @@ FILMSTER nie jest powiązany z marką Hitster ani ze Spotify.
 
 ## Katalog piosenek
 
-W tej wersji: **376 utworów** w czterech kategoriach (242 z wersji bazowej i 134 dodatkowo wybrane, bez zduplikowania tytułu i wykonawcy w kategorii). Plik `songs-extra.js` można dalej rozszerzać. Zamówione 500 dodatkowych utworów na każdą kategorię nie zostało jeszcze w pełni zrealizowane. Metadane i lata utworów należy sprawdzić dla konkretnego wydania przed grą.
+W tej wersji: **523 utwory** w pięciu kategoriach: filmowe 127, polskie 78, taneczne 90, romantyczne 81 i **dziecięce 147** (dla Stasia, Ignasia lub do wspólnej zabawy). Plik `songs-extra.js` zawiera 134 utwory dodatkowe do czterech pierwotnych kategorii, a `songs-kids.js` zawiera kategorię dziecięcą.
+
+W ustawieniach po zaznaczeniu **Piosenki dla dzieci** można wybrać: „Staś i Ignaś — wszystkie”, „Staś (6 lat)”, „Ignaś (4 lata)” albo „Tylko piosenki wspólne”. Zawartość dziecięca obejmuje m.in. Bluey, Spidey, polskie piosenki oraz ścieżki dźwiękowe z filmów dla dzieci.
+
+**Równe lata dają punkt.** Miejsca na osi czasu są przedziałami domkniętymi: jeśli przedział wybranego miejsca zawiera rok bieżącej piosenki, także taki sam jak na którejś sąsiedniej karcie, odpowiedź jest poprawna i daje +1 punkt. Na przykład dla kart 2020, 2023, 2023 i 2026 utwór z 2023 można wstawić w każde miejsce pomiędzy pierwszą i ostatnią kartą z 2023 włącznie.
+
+Dalszy cel rozbudowy: 500 dodatkowych utworów w każdej pierwotnej kategorii. Zamówienie nie jest jeszcze w pełni zrealizowane. Uwaga: konkretne nagrania w Spotify mogą mieć daty inne niż pierwotne wersje.
