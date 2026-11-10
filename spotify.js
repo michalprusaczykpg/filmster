@@ -13,6 +13,8 @@
  };
  let manual=false, startedOnSpotify=false;
  const trackCache=new Map();
+ const apiLog=[];
+ const rememberApi=(path,method,status)=>{apiLog.push({at:new Date().toLocaleTimeString('pl-PL'),method,path:path.split('?')[0],status});if(apiLog.length>25)apiLog.shift();};
  const nap=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  const rememberDevice=d=>{if(d&&d.id&&d.id!=='__active__'){prefs.set('device-id',d.id);prefs.set('device-name',d.name||'Spotify');}};
  const redirectUri=()=>location.origin+location.pathname;
@@ -55,7 +57,14 @@
  }
  async function spotifyApi(path,opts={}){
   const bearer=await token();
-  const response=await fetch('https://api.spotify.com/v1'+path,{...opts,headers:{'Authorization':'Bearer '+bearer,'Content-Type':'application/json',...(opts.headers||{})}});
+  let response;
+  try{
+   response=await fetch('https://api.spotify.com/v1'+path,{...opts,headers:{'Authorization':'Bearer '+bearer,'Content-Type':'application/json',...(opts.headers||{})}});
+  }catch(e){
+   rememberApi(path,opts.method||'GET','NETWORK');
+   throw new Error('Nie udało się skontaktować z API Spotify: '+(e.message||'błąd sieci'));
+  }
+  rememberApi(path,opts.method||'GET',response.status);
   if(response.status===204)return {};
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
@@ -202,40 +211,37 @@
  }
 
  async function diagnose(writeFeedback=true){
-  const report=$('spotifyDiagnostics'), select=$('spotifyDeviceSelect');
-  const notify=msg=>{if(report)report.textContent=msg;status(msg);if(writeFeedback&&$('game')&&!$('game').classList.contains('hidden'))feedback(msg);};
-  if(!isConnected()){
-   notify('❌ Brak autoryzacji Spotify. Wróć do ustawień i kliknij Połącz konto Spotify.');
-   return;
-  }
-  const granted=store.get('scopes');
-  if(granted&&!granted.split(' ').includes('user-read-private')){
-   notify('⚠️ Twoja sesja Spotify ma stare uprawnienia bez wyszukiwania utworów. Kliknij Rozłącz, następnie Połącz konto Spotify i zaakceptuj nowe uprawnienia.');
-   return;
-  }
-  notify('⏳ Sprawdzam Spotify API i dostępne urządzenia…');
+  const report=$('spotifyDiagnostics'),select=$('spotifyDeviceSelect'),httpLog=$('spotifyHttpLog');
+  const notify=msg=>{if(report)report.textContent=msg;if(writeFeedback&&$('game')&&!$('game').classList.contains('hidden'))feedback(msg);};
+  const start=apiLog.length;
+  const publishLog=()=>{
+   if(!httpLog)return;
+   const recent=apiLog.slice(start);
+   httpLog.textContent=recent.length
+    ?recent.map(r=>r.at+' | '+r.method+' '+r.path+' → '+(r.status==='NETWORK'?'BŁĄD SIECI':'HTTP '+r.status)).join('\n')
+    :'Brak odpowiedzi HTTP z API. Sprawdź autoryzację i sieć.';
+  };
+  if(!isConnected()){notify('❌ FILMSTER nie ma zapisanej autoryzacji. Połącz konto w ustawieniach.');publishLog();return;}
+  notify('⏳ Odpytuję Spotify Web API…');
   try{
-   await spotifyApi('/me');
-   const {list}=await playbackDevices();
+   const profile=await spotifyApi('/me');
+   const access=profile?.id?'✅ API uwierzytelnione':'✅ API odpowiedziało';
+   const {list,current}=await playbackDevices();
    if(select){
-    const old=select.value||prefs.get('device-id');
+    const chosenId=select.value||prefs.get('device-id');
     select.replaceChildren();
     for(const device of list){
-     const opt=document.createElement('option');opt.value=device.id;opt.textContent=(device.is_active?'▶ ':'')+device.name+' ('+device.type+')';select.appendChild(opt);
+     const option=document.createElement('option');option.value=device.id;option.textContent=(device.is_active?'▶ ':'')+device.name+' ('+device.type+')';select.appendChild(option);
     }
-    const chosen=list.find(x=>x.id===old)||list.find(x=>x.is_active)||list[0];
-    if(chosen){select.value=chosen.id;rememberDevice(chosen);}
+    const preferred=list.find(d=>d.id===chosenId)||list.find(d=>d.is_active)||list[0];
+    if(preferred){select.value=preferred.id;rememberDevice(preferred);}
     select.disabled=!list.length;
    }
-   if(!list.length){
-    notify('🟡 Konto ma dostęp do Spotify API, ale lista urządzeń jest pusta. Włącz dowolny utwór w Spotify, wróć do FILMSTER i kliknij START + Spotify. Gra spróbuje odtwarzać na ostatnio aktywnym urządzeniu nawet bez ID. Jeśli Spotify odpowie HTTP 404, nie widzi aktywnego odtwarzacza. Możesz spróbować także Spotify Web Player na komputerze.');
-   } else {
-    const active=list.find(x=>x.is_active);
-    notify('✅ Spotify API działa. Dostępne urządzenia: '+list.map(x=>x.name+(x.is_active?' [aktywne]':'')).join(', ')+'. '+(active?'Możesz nacisnąć START + Spotify.':'Wybierz urządzenie poniżej, a następnie naciśnij START + Spotify.'));
-   }
+   const player=current?.device?.name||'brak aktywnego odtwarzacza';
+   notify(access+'. Urządzenia: '+list.length+'. Aktywny odtwarzacz: '+player+'. '+(list.length?'Wybierz urządzenie i spróbuj START.':'Spotify nie udostępnia odtwarzacza — to inny problem niż logowanie.'));
   }catch(e){
-   notify('❌ Test Spotify: '+e.message);
-  }
+   notify('❌ Test API: '+e.message);
+  }finally{publishLog();}
  }
 
  async function pauseIfPlaying(){
@@ -300,6 +306,7 @@
  $('spotifyConnect')?.addEventListener('click',()=>authorize().catch(e=>status(e.message)));
  $('spotifyDisconnect')?.addEventListener('click',disconnect);
  $('spotifyActivateOnce')?.addEventListener('click',activateDevice);
+ $('spotifyRunDiagnostics')?.addEventListener('click',()=>diagnose(false));
  $('spotifyDeviceSelect')?.addEventListener('change',()=>{const el=$('spotifyDeviceSelect');if(el&&el.value){prefs.set('device-id',el.value);prefs.set('device-name',el.selectedOptions?.[0]?.textContent||'Spotify');const note=$('spotifyActivationStatus');if(note)note.textContent='✅ Wybrane urządzenie: '+(el.selectedOptions?.[0]?.textContent||'Spotify')+'. Możesz nacisnąć START.';}});
  $('testSound')?.addEventListener('click',()=>{
   window.FilmsterAudio.test();
