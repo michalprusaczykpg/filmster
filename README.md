@@ -38,7 +38,7 @@ FILMSTER nie jest powiązany z marką Hitster ani ze Spotify.
 
 ## Katalog piosenek
 
-W tej wersji: **523 utwory** w pięciu kategoriach: filmowe 127, polskie 78, taneczne 90, romantyczne 81 i **dziecięce 147** (dla Stasia, Ignasia lub do wspólnej zabawy). Plik `songs-extra.js` zawiera 134 utwory dodatkowe do czterech pierwotnych kategorii, a `songs-kids.js` zawiera kategorię dziecięcą.
+W tej wersji: **543 utwory** w pięciu kategoriach: filmowe 127, polskie 78, taneczne 90, romantyczne 81 i **dziecięce 167** (dla Stasia, Ignasia lub do wspólnej zabawy). Plik `songs-extra.js` zawiera 134 utwory dodatkowe do czterech pierwotnych kategorii, a `songs-kids.js` zawiera kategorię dziecięcą (w tym 20 utworów z albumu *Lisek i przyjaciele*, 2023).
 
 W ustawieniach po zaznaczeniu **Piosenki dla dzieci** można wybrać: „Staś i Ignaś — wszystkie”, „Staś (6 lat)”, „Ignaś (4 lata)” albo „Tylko piosenki wspólne”. Zawartość dziecięca obejmuje m.in. Bluey, Spidey, polskie piosenki oraz ścieżki dźwiękowe z filmów dla dzieci.
 
