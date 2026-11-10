@@ -196,10 +196,11 @@ function refreshSpotifyRoundNote(){
  $('spotifyLink').textContent='🔎 Otwórz wylosowany utwór w Spotify';
  show('spotifyDeviceTools',isPremium);
  if(!isPremium)$('spotifyManual').open=true;
+ else if(!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound()))$('spotifyManual').open=false;
  const manual=!!(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound());
  $('countdownStart').textContent=isPremium&&connected&&!manual?'▶ 3 · 2 · 1 · START + Spotify':isPremium&&!connected&&!manual?'▶ START — wymaga połączenia Spotify':'▶ 3 · 2 · 1 · START — tylko czas';
  $('spotifyFeedback').textContent=isPremium
-  ?(connected?(manual?'🎵 Ręczny DJ: włącz utwór w Spotify, wróć i naciśnij START — tylko odliczanie.':'🟡 Konto połączone. Jeśli odtwarzacz jest aktywny, START spróbuje uruchomić piosenkę. „Otwórz Spotify — aktywuj” nie przełącza gry na DJ.'):'⚠️ Konto Spotify niepołączone. Możesz wybrać ręcznie utwór i uruchomić odliczanie.')
+  ?(connected?(manual?'🎵 Ręczny DJ: włącz utwór w Spotify, wróć i naciśnij START — tylko odliczanie.':'✅ Konto połączone. Naciśnij START + Spotify. Przy pierwszej grze możesz raz użyć przycisku „Przygotuj Spotify” poniżej, jeśli odtwarzacz nie został jeszcze wybrany.'):'⚠️ Konto Spotify niepołączone. Możesz wybrać ręcznie utwór i uruchomić odliczanie.')
   :'🎧 Tryb DJ: wyszukaj bieżący utwór, włącz go w Spotify i wróć do gry. START uruchamia tylko odliczanie.';
  $('spotifyConnectWarning').classList.toggle('hidden',!isPremium||connected||(window.FilmsterSpotify&&window.FilmsterSpotify.isManualRound()));
 }
@@ -354,4 +355,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=14"></script></body></html>
+</script><script src="./spotify.js?v=15"></script></body></html>
