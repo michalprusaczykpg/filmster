@@ -42,6 +42,40 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
 #launchHelp{background:#3a2740;border:2px solid #ff8fbb;border-radius:14px;padding:14px;margin:14px 0;font-size:14px;color:#ffe9f1}
 #launchHelp strong{display:block;color:white;font-size:16px;margin-bottom:5px}
 #appError{display:none;background:#5b243d;color:white;border-radius:14px;padding:14px;margin-top:12px;white-space:pre-wrap}
+
+/* FILMSTER v21: compact mobile game - put timeline below the clock, settings last. */
+#game .stage{padding:13px 11px;margin-top:9px;border-radius:15px}
+#game .record{width:52px;height:52px;border-width:4px;margin:0 auto 5px;box-shadow:none}
+#game .record b{width:23px;height:23px;font-size:14px}
+#game .stage-title{font-size:19px;line-height:1.18}
+#game .stage .subtle{font-size:11px;margin:3px 0 7px!important}
+#game .countdown-timer{font-size:clamp(26px,7vw,34px);letter-spacing:-.6px;line-height:1.06}
+#game .timer-label{font-size:11px}
+#game .timer-progress{margin:6px auto 9px;height:5px}
+#game #countdownStart{min-height:44px;font-size:14px;box-shadow:none}
+#game #spotifyFeedback{margin-top:6px;font-size:11px;padding:6px 9px}
+#game .timeline-top{margin:12px 0 5px}
+#game .timeline-top h2{font-size:17px}
+#game .timeline-help{font-size:11px;line-height:1.35;margin:3px 0 9px}
+#game .timeline{gap:4px}
+#game .time-card{min-height:51px;padding:7px 9px;grid-template-columns:58px minmax(0,1fr);gap:8px}
+#game .time-card .yr{font-size:20px}
+#game .time-card .what{font-size:13px}
+#game .time-card .who{font-size:11px}
+#game .insert-slot{min-height:32px;padding:4px;font-size:11px}
+#game #confirmPosition{margin-top:9px!important;min-height:42px}
+#game .spotify-tools-secondary{margin-top:18px;border-top:1px solid #43435d;padding-top:10px}
+@media(max-width:650px){
+ #game .panel{padding:11px}
+ #game .stage{padding:10px 9px}
+ #game .record{width:42px;height:42px;margin-bottom:2px}
+ #game .stage .subtle{display:none}
+ #game .stage-title{font-size:16px;margin-bottom:3px}
+ #game .countdown-timer{font-size:28px}
+ #game .timeline-top{margin-top:9px}
+ #game .time-card{min-height:47px}
+ #game .insert-slot{min-height:30px}
+}
 </style>
 </head><body>
 <main class="wrap">
@@ -115,6 +149,20 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
         <button id="pauseTimer" class="secondary hidden">⏸ Pauza</button>
       </div>
       <p id="spotifyFeedback" class="stage-note" role="status" aria-live="polite">Sprawdzam połączenie Spotify…</p>
+      </div>
+    <div class="timeline-top"><div><div class="section-cap">Oś czasu</div><h2 id="timelineTitle" style="margin:0">Karty gracza</h2></div><span id="cardsCount" class="pill">1 karta</span></div>
+    <p class="timeline-help" id="timelineHelp">Najpierw uruchom rundę. Potem kliknij „+” w miejscu, do którego pasuje nowa piosenka — od najstarszych do najnowszych.</p>
+    <div id="timeline" class="timeline"></div>
+    <button id="confirmPosition" class="primary wide" style="margin-top:15px" disabled>✓ Zatwierdź miejsce na osi czasu</button>
+    <div id="result" class="result hidden" aria-live="polite">
+      <h3 id="resultTitle"></h3>
+      <div id="resultYear" class="result-year"></div>
+      <div id="resultSong" class="songline"></div>
+      <div id="resultMovie" class="movie"></div>
+      <p id="resultDescription"></p>
+      <div class="below"><button id="bonus" class="secondary">+1 pkt — dodatkowa poprawna odpowiedź</button><button id="nextRound" class="primary">Następna runda →</button></div>
+    </div>
+    <div class="spotify-tools-secondary" aria-label="Ustawienia opcjonalne">
       <details id="spotifyDeviceTools" class="install-card spotify-settings" style="margin:12px 0">
         <summary id="spotifySetupSummary">⚙️ Spotify — ustawienia odtwarzacza</summary>
         <p style="margin:10px 0">Pierwsze uruchomienie: włącz dowolną piosenkę w aplikacji Spotify, wróć do FILMSTER i wybierz przycisk przygotowania. Później korzystaj ze START.</p>
@@ -139,18 +187,6 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
         <p style="margin:6px 0">Samo posiadanie Premium nie uruchamia muzyki. Potrzebna jest autoryzacja Spotify poprzez Client ID aplikacji deweloperskiej. Bez tego START nie może włączyć piosenki.</p>
         <button type="button" id="switchToDjMode" class="secondary">🎧 Graj ręcznie (tryb DJ)</button>
       </div>
-    </div>
-    <div class="timeline-top"><div><div class="section-cap">Oś czasu</div><h2 id="timelineTitle" style="margin:0">Karty gracza</h2></div><span id="cardsCount" class="pill">1 karta</span></div>
-    <p class="timeline-help" id="timelineHelp">Najpierw uruchom rundę. Potem kliknij „+” w miejscu, do którego pasuje nowa piosenka — od najstarszych do najnowszych.</p>
-    <div id="timeline" class="timeline"></div>
-    <button id="confirmPosition" class="primary wide" style="margin-top:15px" disabled>✓ Zatwierdź miejsce na osi czasu</button>
-    <div id="result" class="result hidden" aria-live="polite">
-      <h3 id="resultTitle"></h3>
-      <div id="resultYear" class="result-year"></div>
-      <div id="resultSong" class="songline"></div>
-      <div id="resultMovie" class="movie"></div>
-      <p id="resultDescription"></p>
-      <div class="below"><button id="bonus" class="secondary">+1 pkt — dodatkowa poprawna odpowiedź</button><button id="nextRound" class="primary">Następna runda →</button></div>
     </div>
   </div>
   <button id="backToSetup" class="quiet">↩ Nowa gra</button>
@@ -373,23 +409,7 @@ function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClock
  $('resultDescription').textContent=correct
    ?(ties?'✅ Ten sam rok co na istniejącej karcie — poprawny przedział, +1 punkt!':'Karta trafia na Twoją oś czasu.')
    :`Poprawne miejsce: ${placementHint(previousCards,song.year)}. Ta karta nie trafia na oś czasu.`;
- if(getSpotifyMode()==='premium'&&window.FilmsterSpotify?.isConnected()&&!window.FilmsterSpotify.isManualRound()){
-   const roundState=state,roundIndex=state.index;
-   $('clockLabel').textContent+=' · Zatrzymuję muzykę…';
-   // Do not await: the player must still see the answer immediately.
-   window.FilmsterSpotify.stopBetweenRounds().then(result=>{
-     if(state!==roundState||state.phase!=='done'||state.index!==roundIndex)return;
-     const label=timedOut?'⏰ Koniec czasu — odsłaniamy kartę':'Karta odkryta';
-     if(result.mode==='muted')$('clockLabel').textContent=label+' · 🔇 Muzyka wyciszona';
-     else if(result.mode==='paused'||result.mode==='already-paused')$('clockLabel').textContent=label+' · ⏸ Muzyka wstrzymana';
-     else if(result.mode==='other-track')$('clockLabel').textContent=label+' · Spotify zmieniło utwór poza grą';
-     else if(result.mode==='pause-failed')$('clockLabel').textContent=label+' · ⚠️ Nie można zatrzymać Spotify';
-     else $('clockLabel').textContent=label;
-   }).catch(error=>{
-     if(state===roundState&&state.phase==='done'&&state.index===roundIndex)
-       $('clockLabel').textContent+=' · ⚠️ Spotify: '+error.message;
-   });
- }
+ if(getSpotifyMode()==='premium'&&window.FilmsterSpotify?.isConnected()&&!window.FilmsterSpotify.isManualRound())$('clockLabel').textContent+=' · 🎵 Spotify gra dalej';
  $('result').classList.toggle('good',correct);$('result').classList.toggle('bad',!correct);show('result',true);renderTimeline();
 }
 function endGame(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();show('game',false);show('finish',true);const ranking=[...state.players].sort((a,b)=>b.score-a.score);const best=ranking[0].score;const winners=ranking.filter(p=>p.score===best).map(p=>p.name);
@@ -434,4 +454,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=23"></script></body></html>
+</script><script src="./spotify.js?v=24"></script></body></html>
