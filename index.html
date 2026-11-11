@@ -166,6 +166,8 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
 <script src="./songs-extra.js"></script>
 <script src="./songs-polish.js"></script>
 <script src="./songs-dance.js"></script>
+<script src="./songs-romantic.js"></script>
+<script src="./songs-film.js"></script>
 <script src="./songs-kids.js"></script>
 <script>
 window.addEventListener('error',function(event){const box=document.getElementById('appError');if(box){box.style.display='block';box.textContent='Błąd uruchomienia: '+(event.message||'Nieznany błąd')+'\nSpróbuj otworzyć grę w Safari albo Chrome.';}});
@@ -173,6 +175,8 @@ const SONGS=[{"pack":"film","title":"My Heart Will Go On","artist":"Céline Dion
 SONGS.push(...(Array.isArray(window.FILMSTER_EXTRA_SONGS)?window.FILMSTER_EXTRA_SONGS:[]));
 SONGS.push(...(Array.isArray(window.FILMSTER_POLISH_SONGS)?window.FILMSTER_POLISH_SONGS:[]));
 SONGS.push(...(Array.isArray(window.FILMSTER_DANCE_SONGS)?window.FILMSTER_DANCE_SONGS:[]));
+SONGS.push(...(Array.isArray(window.FILMSTER_ROMANTIC_SONGS)?window.FILMSTER_ROMANTIC_SONGS:[]));
+SONGS.push(...(Array.isArray(window.FILMSTER_FILM_SONGS)?window.FILMSTER_FILM_SONGS:[]));
 SONGS.push(...(Array.isArray(window.FILMSTER_KIDS_SONGS)?window.FILMSTER_KIDS_SONGS:[]));
 const PACKS={polish:{icon:'🇵🇱',label:'Polska'},film:{icon:'🎬',label:'Film'},dance:{icon:'🪩',label:'Taneczna'},romantic:{icon:'💗',label:'Dla Agi'},kids:{icon:'🧸',label:'Dla dzieci'}};
 const $=id=>document.getElementById(id);
@@ -413,4 +417,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=20"></script></body></html>
+</script><script src="./spotify.js?v=21"></script></body></html>
