@@ -13,6 +13,7 @@
  };
  let manual=false, startedOnSpotify=false;
  const trackCache=new Map();
+ const albumCache=new Map();
  const apiLog=[];
  const rememberApi=(path,method,status)=>{apiLog.push({at:new Date().toLocaleTimeString('pl-PL'),method,path:path.split('?')[0],status});if(apiLog.length>25)apiLog.shift();};
  const nap=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -115,6 +116,7 @@
     if(tracks.length&&rankSong(song,tracks[0])>=22)break;
    }
    if(!tracks.length||rankSong(song,tracks[0])<22)throw new Error('Spotify nie znalazło właściwego nagrania. Skorzystaj z ręcznego przycisku Spotify.');
+   if(tracks[0].album?.uri)albumCache.set(tracks[0].uri,tracks[0].album.uri);
    return tracks[0].uri;
   })();
   trackCache.set(key,work);
@@ -136,58 +138,85 @@
   rememberDevice(device);
   return device;
  }
- async function verifyPlayback(trackUri,deviceName){
-  // Spotify HTTP 204 confirms a command was accepted, not that the requested song is playing.
-  // Read Spotify's actual player state; IDs are compared without exposing them in the UI.
+ async function verifyPlayback(trackUri,deviceName,checks=5){
+  // HTTP 204 only acknowledges the command. Require the selected track and is_playing.
   const id=trackUri.split(':').pop();
-  let reason='Brak aktualnego stanu Spotify.';
-  for(let i=0;i<6;i++){
-   await nap(i===0?450:550);
+  let reason='Spotify nie potwierdziło zmiany utworu.';
+  for(let i=0;i<checks;i++){
+   await nap(i===0?450:500);
    try{
-    const state=await spotifyApi('/me/player');
-    if(state?.is_playing===true && (state?.item?.uri===trackUri || state?.item?.id===id)){
+    const player=await spotifyApi('/me/player');
+    const item=player?.item;
+    if(player?.is_playing===true && (item?.uri===trackUri||item?.id===id||item?.linked_from?.id===id)){
      startedOnSpotify=true;
-     return {verified:true,device:state?.device?.name||deviceName};
+     return {verified:true,device:player?.device?.name||deviceName};
     }
-    if(!state?.device)reason='Spotify nie pokazuje aktywnego urządzenia po poleceniu START.';
-    else if(state.is_playing===false)reason='Spotify ma aktywny odtwarzacz, lecz odtwarzanie jest wstrzymane.';
-    else if(state.is_playing===true && state?.item)reason='Spotify nadal odtwarza poprzedni utwór.';
-    else reason='Spotify jeszcze nie zwraca aktualnej piosenki.';
+    if(!player?.device)reason='Spotify nie pokazuje aktywnego odtwarzacza.';
+    else if(player.is_playing===false)reason='Spotify ma aktywny odtwarzacz, ale odtwarzanie jest wstrzymane.';
+    else if(item)reason='Spotify nadal odtwarza poprzedni utwór.';
+    else reason='Spotify nie zwraca jeszcze aktualnego utworu.';
    }catch(error){
-    reason='Nie udało się odczytać odtwarzacza: '+error.message;
-    if(error.status===403||error.status===401)break;
+    reason='Brak potwierdzenia odtwarzania: '+error.message;
+    if(error.status===401||error.status===403)break;
    }
   }
   startedOnSpotify=false;
   return {verified:false,device:deviceName,message:reason};
  }
+ async function getAlbumUri(trackUri){
+  if(albumCache.has(trackUri))return albumCache.get(trackUri);
+  const id=trackUri.split(':').pop();
+  if(!/^[A-Za-z0-9]{22}$/.test(id))return null;
+  try{
+   const meta=await spotifyApi('/tracks/'+encodeURIComponent(id));
+   const album=meta?.album?.uri||null;
+   if(album)albumCache.set(trackUri,album);
+   return album;
+  }catch(e){
+   console.info('Spotify album lookup:',e.message);
+   return null;
+  }
+ }
  async function play(song){
   if(!isConnected())throw new Error('Brak autoryzacji Spotify.');
-  // Do track lookup in advance where possible, reducing iOS time spent in background.
   const uri=await resolveTrack(song);
   let {list}=await playbackDevices();
   let device=selectAndRemember(list);
-  const body=JSON.stringify({uris:[uri],position_ms:0});
-  const attempt=async(d,transfer=false)=>{
+  const devicePath=d=>'/me/player/play'+(d?.id&&d.id!=='__active__'?'?device_id='+encodeURIComponent(d.id):'');
+  const selectedName=d=>d?.name||prefs.get('device-name')||'urządzenie Spotify';
+  const run=async(d,transfer=false)=>{
    if(d&&d.id!=='__active__'&&transfer&&!d.is_active){
     await spotifyApi('/me/player',{method:'PUT',body:JSON.stringify({device_ids:[d.id],play:true})});
-    await nap(700); // Spotify Connect may need time after transfer.
+    await nap(500);
    }
-   const path='/me/player/play'+(d?.id&&d.id!=='__active__'?'?device_id='+encodeURIComponent(d.id):'');
-   await spotifyApi(path,{method:'PUT',body});
-   startedOnSpotify=true;
+   // First try the standard Spotify API command for one specific track.
+   await spotifyApi(devicePath(d),{method:'PUT',body:JSON.stringify({uris:[uri],position_ms:0})});
    rememberDevice(d);
-   return d?.name||prefs.get('device-name')||'aktywne urządzenie Spotify';
+   let result=await verifyPlayback(uri,selectedName(d),3);
+   if(result.verified)return result;
+   // Fall back to an album context when Spotify returns 204 but silently pauses.
+   // This is a reported Spotify API regression affecting single-track URIs.
+   const album=await getAlbumUri(uri);
+   if(!album){
+    return {...result,message:result.message+' Spróbowałem odtworzyć pojedynczy utwór, ale Spotify go nie rozpoczęło. Nie udało się pobrać albumu do alternatywnego uruchomienia.'};
+   }
+   try{
+    await spotifyApi(devicePath(d),{method:'PUT',body:JSON.stringify({context_uri:album,offset:{uri},position_ms:0})});
+    result=await verifyPlayback(uri,selectedName(d),6);
+    if(!result.verified)result.message='Alternatywne uruchomienie z albumu też nie pomogło. '+result.message;
+    return result;
+   }catch(error){
+    if(error.status===404)throw error;
+    return {verified:false,device:selectedName(d),message:'Spotify odrzuciło próbę uruchomienia utworu z albumu: '+error.message};
+   }
   };
   try{
-   const name=await attempt(device,true);
-   return await verifyPlayback(uri,name);
+   return await run(device,true);
   }catch(error){
    if(error.status!==404)throw error;
   }
-  // The previously visible iPhone can go offline when the Spotify app is backgrounded.
-  // Refresh device IDs and try current active playback, then the freshest selected ID.
-  await nap(350);
+  // iPhone Connect IDs can disappear on app backgrounding; refresh before retrying.
+  await nap(300);
   ({list}=await playbackDevices());
   device=selectAndRemember(list);
   const attempts=[null,device];
@@ -195,12 +224,10 @@
   if(saved&&!attempts.some(d=>d?.id===saved))attempts.push({id:saved,name:prefs.get('device-name')||'zapisane urządzenie',is_active:false});
   let lastError=null;
   for(const candidate of attempts){
-   try{
-    const name=await attempt(candidate,!!candidate);
-    return await verifyPlayback(uri,name);
-   }catch(e){lastError=e;if(e.status!==404)throw e;}
+   try{return await run(candidate,!!candidate);}
+   catch(error){lastError=error;if(error.status!==404)throw error;}
   }
-  throw new Error('Spotify HTTP 404: urządzenie iPhone przestało odpowiadać po przełączeniu do FILMSTER. Wybrany odtwarzacz zapamiętałem, ale Spotify nie daje teraz sterowania. Otwórz Spotify, włącz piosenkę i wróć do gry albo wybierz ręczny tryb DJ. '+(lastError?.message||''));
+  throw new Error('Spotify HTTP 404: brak aktywnego urządzenia. Otwórz Spotify na iPhonie, włącz dowolną piosenkę i wróć do FILMSTER. '+(lastError?.message||''));
  }
  async function activateDevice(){
   const report=$('spotifyDiagnostics'), visible=$('spotifyActivationStatus');
@@ -303,7 +330,7 @@
  }
  function disconnect(){
   ['access-token','expiry','refresh-token','scopes','verifier','state'].forEach(k=>store.del(k));['oauth-state','oauth-verifier','oauth-since'].forEach(k=>prefs.del(k));
-  prefs.del('device-id');prefs.del('device-name');prefs.del('device-preference');trackCache.clear();
+  prefs.del('device-id');prefs.del('device-name');prefs.del('device-preference');trackCache.clear();albumCache.clear();
   startedOnSpotify=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
  }
  function setManualRound(b){manual=!!b;}
