@@ -19,7 +19,7 @@ Dla automatycznego uruchamiania piosenek z poziomu FILMSTER:
 3. W Spotify Developer Dashboard skopiuj **Client ID**, **nie Client Secret**. Wklej Client ID w **Połącz Spotify Premium** na ekranie gry, najlepiej w Safari (nie w oknie podglądu innej aplikacji).
 4. Zaloguj się na Spotify, wyraź zgodę na dostęp do odtwarzacza.
 5. Uruchom Spotify na iPhonie/komputerze i odtwórz dowolną piosenkę, aby urządzenie było widoczne w Spotify Connect. Wróć do FILMSTER.
-6. Naciśnij **3 · 2 · 1 · START!** — gra wyszuka utwór, spróbuje włączyć go na aktywnym urządzeniu i uruchomi odliczanie.
+6. Naciśnij **3 · 2 · 1 · START!** — po wizualnym odliczeniu gra uruchomi wylosowaną piosenkę i sprawdzi jej stan. Czas odpowiedzi rozpocznie się dopiero po potwierdzeniu odtwarzania.
 
 **Ważne:** Spotify ma limity dla aplikacji w trybie developerskim (m.in. maksymalnie 5 użytkowników na aplikację). Każde konto testera musi być dopisane do allowlisty w Spotify Developer Dashboard. Wyszukiwanie i odtwarzanie może się nie udać dla konkretnych utworów lub urządzeń. W takiej sytuacji użyj ręcznego odnośnika.
 
@@ -27,13 +27,19 @@ Spotify udostępnia odtwarzanie przez Web API tylko użytkownikom Premium. Autor
 
 ## Aktywacja Spotify jeden raz
 
-Po połączeniu konta Premium, odtwórz dowolny utwór w Spotify i wróć do FILMSTER. Na ekranie rundy możesz kliknąć **🔊 Aktywuj Spotify tylko raz**. Gra zapamięta wybrane urządzenie. W kolejnych rundach przycisk **START + Spotify** automatycznie spróbuje zagrać wylosowany utwór bez ręcznego przechodzenia do Spotify. Wyszukiwanie utworu rozpoczyna się już po przygotowaniu nowej rundy. W przypadku utraty aktywnego urządzenia API ponawia próbę i odświeża dostępne urządzenia.
+Po połączeniu konta Premium, odtwórz dowolny utwór w Spotify i wróć do FILMSTER. Na ekranie rundy możesz kliknąć **🔊 Przygotuj Spotify (jednorazowo)**. Gra zapamięta wybrane urządzenie. W kolejnych rundach przycisk **START + Spotify** automatycznie spróbuje zagrać wylosowany utwór bez ręcznego przechodzenia do Spotify. Wyszukiwanie utworu rozpoczyna się już po przygotowaniu nowej rundy. W przypadku utraty aktywnego urządzenia API ponawia próbę i odświeża dostępne urządzenia.
 
 **Ograniczenie Spotify/iOS:** zaakceptowanie polecenia przez Spotify Web API nie gwarantuje, że iPhone odtwarza dźwięk. Jeśli aplikacja Spotify stanie się niedostępna jako odtwarzacz Connect po przełączeniu do Safari/PWA, może pojawić się HTTP 404 i trzeba ponownie otworzyć Spotify. Nie ma niezawodnego sposobu, by strona statyczna GitHub Pages wymusiła utrzymywanie procesu Spotify w tle na iPhonie. Tryb ręczny pozostaje dostępny przez osobny przycisk otwierający dokładnie wylosowany utwór.
 
+## Diagnostyka Spotify 204 i pauzy
+
+Jeżeli pojedyncze żądanie `PUT /me/player/play` zostanie zaakceptowane, ale `GET /me/player` nadal raportuje `is_playing:false`, FILMSTER próbuje ponownie przez kontekst albumu `context_uri` z `offset.uri`. Jest to eksperymentalne obejście zgłaszanego zachowania Spotify API, a nie gwarancja odtwarzania na iPhonie. Weryfikacja wymaga, żeby `GET /me/player` wskazał faktycznie odtwarzany, wylosowany utwór. Gdy odtwarzanie nie zostanie potwierdzone, gra nie rozpocznie czasu odpowiedzi.
+
+Ustawienia urządzenia i diagnostyka są dostępne w zwijanym panelu na ekranie rundy. Po udanym przygotowaniu odtwarzacza panel automatycznie się zwija.
+
 ## Dźwięk
 
-Na ekranie ustawień kliknij **🔊 Sprawdź dźwięk odliczania**. Dźwięki 3–2–1 generuje lokalnie przeglądarka, nie są nagraniami muzycznymi. Na iPhonie zwiększ głośność multimediów. Dźwięk piosenki pochodzi wyłącznie ze Spotify — nie jest odtwarzany przez stronę FILMSTER.
+Odliczanie **3–2–1 jest wyłącznie wizualne**, aby Web Audio nie przerywało muzyki Spotify na iPhonie. Osobny test dźwięku poza rundą pozostaje dostępny w ustawieniach. Dźwięk piosenki pochodzi wyłącznie ze Spotify — nie jest odtwarzany przez stronę FILMSTER.
 
 ## Publikacja
 
@@ -44,7 +50,7 @@ FILMSTER nie jest powiązany z marką Hitster ani ze Spotify.
 
 ## Katalog piosenek
 
-W tej wersji: **938 utworów** w pięciu kategoriach: filmowe 127, polskie **288**, taneczne **275**, romantyczne 81 i **dziecięce 167** (dla Stasia, Ignasia lub do wspólnej zabawy). Plik `songs-extra.js` zawiera 134 utwory dodatkowe, `songs-dance.js` zawiera **185 nowych utworów tanecznych** (m.in. Shakira, Jennifer Lopez, disco, eurodance), `songs-polish.js` zawiera kolejne **210 polskich piosenek** (klasyka i nowe utwory), a `songs-kids.js` zawiera kategorię dziecięcą (w tym 20 utworów z albumu *Lisek i przyjaciele*, 2023).
+W tej wersji: **1400 utworów** w pięciu kategoriach: filmowe **277**, polskie **288**, taneczne **275**, romantyczne **393** i **dziecięce 167** (dla Stasia, Ignasia lub do wspólnej zabawy). Plik `songs-extra.js` zawiera 134 utwory dodatkowe, `songs-film.js` zawiera **150 nowych utworów filmowych i musicalowych**, `songs-romantic.js` zawiera **312 nowych utworów romantycznych**, `songs-dance.js` zawiera **185 nowych utworów tanecznych** (m.in. Shakira, Jennifer Lopez, disco, eurodance), `songs-polish.js` zawiera kolejne **210 polskich piosenek** (klasyka i nowe utwory), a `songs-kids.js` zawiera kategorię dziecięcą (w tym 20 utworów z albumu *Lisek i przyjaciele*, 2023).
 
 W ustawieniach po zaznaczeniu **Piosenki dla dzieci** można wybrać: „Staś i Ignaś — wszystkie”, „Staś (6 lat)”, „Ignaś (4 lata)” albo „Tylko piosenki wspólne”. Zawartość dziecięca obejmuje m.in. Bluey, Spidey, polskie piosenki oraz ścieżki dźwiękowe z filmów dla dzieci.
 
