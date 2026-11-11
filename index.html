@@ -76,6 +76,59 @@ button,input,select{font:inherit}button{border:0;border-radius:13px;padding:12px
  #game .time-card{min-height:47px}
  #game .insert-slot{min-height:30px}
 }
+
+/* Gameplay-only compact view: show the timer and timeline above all decorative UI. */
+body.game-mode .love-note,
+body.game-mode .topbar,
+body.game-mode .footer {display:none!important}
+body.game-mode .wrap{max-width:780px;padding:6px 8px calc(16px + env(safe-area-inset-bottom,0px))}
+body.game-mode #game .panel{padding:9px 10px 12px;border-radius:15px;margin-bottom:7px;box-shadow:none}
+body.game-mode #game .panel>.actions:first-child{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0}
+body.game-mode #game .panel>.actions:first-child::-webkit-scrollbar{display:none}
+body.game-mode #game .panel>.actions:first-child .pill{font-size:10px;padding:4px 7px;white-space:nowrap;flex-shrink:0}
+body.game-mode #game .scoreboard{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;margin:6px 0 7px;padding-bottom:2px;scrollbar-width:none;scroll-snap-type:x proximity}
+body.game-mode #game .scoreboard::-webkit-scrollbar{display:none}
+body.game-mode #game .person{display:flex;align-items:center;gap:5px;flex-shrink:0;white-space:nowrap;padding:5px 8px;font-size:11px;line-height:1.3;border-radius:9px;scroll-snap-align:start}
+body.game-mode #game .person .score-name{max-width:120px;overflow:hidden;text-overflow:ellipsis}
+body.game-mode #game .person b{font-size:11px}
+body.game-mode #game .person .score-cards{color:#c8c9d7;font-size:10px}
+body.game-mode #game .stage{padding:9px 10px;margin-top:3px;border-radius:13px}
+body.game-mode #game .record{display:none}
+body.game-mode #game .stage-title{font-size:14px;font-weight:750;margin:0 0 3px}
+body.game-mode #game .stage .subtle{display:none}
+body.game-mode #game .countdown-timer{font-size:clamp(34px,8vw,42px);line-height:1.02;letter-spacing:-.7px;margin:2px 0}
+body.game-mode #game .timer-label{font-size:10px;line-height:1.2;margin:1px 0}
+body.game-mode #game .timer-progress{margin:5px auto 7px;height:5px;max-width:100%}
+body.game-mode #game #countdownStart,
+body.game-mode #game #pauseTimer{min-height:42px;padding:8px 13px;font-size:13px;box-shadow:none}
+body.game-mode #game #spotifyFeedback{font-size:10px;line-height:1.25;padding:5px 8px;margin:6px auto 0;max-width:100%}
+body.game-mode #game .timeline-top{margin:9px 0 5px;gap:7px;flex-wrap:nowrap}
+body.game-mode #game .timeline-top .section-cap{display:none}
+body.game-mode #game #timelineTitle{font-size:16px;line-height:1.15}
+body.game-mode #game #cardsCount{padding:4px 7px;font-size:10px;white-space:nowrap}
+body.game-mode #game .timeline-help{font-size:10px;line-height:1.25;margin:1px 0 7px}
+body.game-mode #game .timeline{gap:5px}
+body.game-mode #game .time-card{grid-template-columns:54px minmax(0,1fr);gap:8px;padding:7px 9px;min-height:48px;border-radius:10px}
+body.game-mode #game .time-card .yr{font-size:18px}
+body.game-mode #game .time-card .what{font-size:12px;line-height:1.2}
+body.game-mode #game .time-card .who{font-size:10px;line-height:1.2}
+body.game-mode #game .insert-slot{min-height:39px;padding:5px 7px;font-size:11px;gap:5px;border-radius:10px}
+body.game-mode #game .insert-slot .plus{font-size:18px}
+body.game-mode #game #confirmPosition{min-height:43px;padding:9px 12px;margin-top:9px!important;font-size:13px}
+body.game-mode #game .spotify-tools-secondary{margin-top:16px;padding-top:8px}
+@media(max-width:650px){
+ body.game-mode .wrap{padding:5px 7px calc(12px + env(safe-area-inset-bottom,0px))}
+ body.game-mode #game .panel{padding:7px}
+ body.game-mode #game .person{padding:4px 7px;font-size:10px}
+ body.game-mode #game .person .score-name{max-width:92px}
+ body.game-mode #game .person .score-cards{display:none}
+ body.game-mode #game .stage{padding:7px 8px}
+ body.game-mode #game .stage-title{font-size:12px}
+ body.game-mode #game .countdown-timer{font-size:36px}
+ body.game-mode #game #timelineTitle{font-size:15px}
+ body.game-mode #game .time-card{min-height:46px;padding:6px 8px}
+ body.game-mode #game .insert-slot{min-height:39px}
+}
 </style>
 </head><body>
 <main class="wrap">
@@ -318,7 +371,7 @@ async function countdown(){
      refreshSpotifyRoundNoteLabel();
      return;
     }
-    $('spotifyFeedback').textContent='✅ Spotify potwierdziło, że wylosowany utwór gra na: '+outcome.device+'. Odpowiadaj na osi czasu!';
+    $('spotifyFeedback').textContent='✅ Spotify gra: '+outcome.device;
    }catch(error){
     if(!isCurrent())return;
     $('spotifyFeedback').textContent='❌ START + Spotify: '+(error.message||'Błąd odtwarzania Spotify')+' Możesz ponowić START lub otworzyć utwór ręcznie.';
@@ -340,10 +393,10 @@ function pauseTimer(){if(!state||state.seconds===0)return;if(state.phase==='play
 function activePlayer(){return state.players[state.index%state.players.length];}
 function songLabel(song){return song.pack==='film'?(song.movie||song.title):song.title;}
 function cardHtml(song,added){return `<div class="time-card ${added?'added':''}"><div class="yr">${song.year}</div><div><div class="what">${escapeHtml(songLabel(song))}</div><div class="who">${escapeHtml(song.title)} — ${escapeHtml(song.artist)}</div></div></div>`;}
-function renderPlayers(){if(!state)return;const active=activePlayer();$('scoreboard').innerHTML=state.players.map(p=>`<div class="person ${p===active?'current':''}">${escapeHtml(p.name)} <b>${p.score} pkt</b> · ${p.timeline.length} kart</div>`).join('');}
+function renderPlayers(){if(!state)return;const active=activePlayer();$('scoreboard').innerHTML=state.players.map(p=>`<div class="person ${p===active?'current':''}"><span class="score-name">${escapeHtml(p.name)}</span><b>${p.score} pkt</b><span class="score-cards">· ${p.timeline.length} kart</span></div>`).join('');}
 function renderTimeline(){if(!state)return;const player=activePlayer();const cards=player.timeline;const editable=state.phase==='playing'||state.phase==='paused';
  $('timelineTitle').textContent='Oś czasu: '+player.name;$('cardsCount').textContent=cards.length+' '+(cards.length===1?'karta':cards.length<=4?'karty':'kart');
- $('timelineHelp').textContent=state.phase==='ready'||state.phase==='countdown'?'Najpierw uruchom odliczanie 3–2–1.':'Wybierz przyciskiem + miejsce nowej piosenki (od najstarszych do najnowszych). Ten sam rok co na sąsiedniej karcie też daje punkt.';
+ $('timelineHelp').textContent=state.phase==='ready'||state.phase==='countdown'?'Naciśnij START, a potem wybierz miejsce.':'Wybierz +. Ten sam rok na sąsiedniej karcie też daje punkt.';
  let h='';for(let i=0;i<=cards.length;i++){
   if(state.phase!=='done'){
    const lower=i===0?'początkiem':String(cards[i-1].year);const upper=i===cards.length?'końcem':String(cards[i].year);
@@ -412,12 +465,12 @@ function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClock
  if(getSpotifyMode()==='premium'&&window.FilmsterSpotify?.isConnected()&&!window.FilmsterSpotify.isManualRound())$('clockLabel').textContent+=' · 🎵 Spotify gra dalej';
  $('result').classList.toggle('good',correct);$('result').classList.toggle('bad',!correct);show('result',true);renderTimeline();
 }
-function endGame(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();show('game',false);show('finish',true);const ranking=[...state.players].sort((a,b)=>b.score-a.score);const best=ranking[0].score;const winners=ranking.filter(p=>p.score===best).map(p=>p.name);
+function endGame(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();document.body.classList.remove('game-mode');show('game',false);show('finish',true);const ranking=[...state.players].sort((a,b)=>b.score-a.score);const best=ranking[0].score;const winners=ranking.filter(p=>p.score===best).map(p=>p.name);
  $('winner').textContent=winners.length>1?'Remis: '+winners.join(', ')+' 🎉':'Wygrywa '+winners[0]+'! 🎉';$('finalScores').innerHTML=ranking.map((p,i)=>`<div><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':'🎵'} ${escapeHtml(p.name)}</span><b>${p.score} pkt · ${p.timeline.length} kart</b></div>`).join('');}
 $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names').value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,8);if(!names.length){alert('Wpisz przynajmniej jednego gracza.');return;}
  const pool=shuffle([...selectedSongs()]);if(pool.length<2){alert('Zaznacz przynajmniej jeden zbiór piosenek.');return;}
  const starter=pool.pop();state={players:names.map(name=>({name,score:0,timeline:[starter]})),deck:pool,rounds:Math.min(Number($('rounds').value),pool.length),seconds:Number($('seconds').value),index:0,phase:'ready',choice:null,bonus:false,newlyAdded:null};
- show('setup',false);show('finish',false);show('game',true);newRound();try{window.scrollTo(0,0);}catch(_){}
+ show('setup',false);show('finish',false);show('game',true);document.body.classList.add('game-mode');newRound();try{window.scrollTo(0,0);}catch(_){}
 });
 $('countdownStart').addEventListener('click',countdown);
 $('spotifyLink').addEventListener('click',()=>{
@@ -431,8 +484,8 @@ $('pauseTimer').addEventListener('click',pauseTimer);
 $('timeline').addEventListener('click',ev=>{const element=ev.target.closest('[data-slot]');if(!element||!state||!['playing','paused'].includes(state.phase))return;state.choice=Number(element.dataset.slot);renderTimeline();});
 $('confirmPosition').addEventListener('click',()=>{if(!state||!['playing','paused'].includes(state.phase)||state.choice===null)return;finishAnswer(false);});
 $('bonus').addEventListener('click',()=>{if(!state||state.phase!=='done')return;const player=activePlayer();state.bonus=!state.bonus;player.score+=state.bonus?1:-1;$('bonus').textContent=state.bonus?'✓ Bonus przyznany (+1 pkt) · cofnij':'+1 pkt — zgadnięty tytuł / film';renderPlayers();});
-$('nextRound').addEventListener('click',()=>{if(!state||state.phase!=='done')return;state.index++;newRound();});
-function reset(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();state=null;show('game',false);show('finish',false);show('setup',true);try{window.scrollTo(0,0);}catch(_){}}
+$('nextRound').addEventListener('click',()=>{if(!state||state.phase!=='done')return;state.index++;newRound();try{$('game').scrollIntoView({behavior:'smooth',block:'start'});}catch(_){}});
+function reset(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();document.body.classList.remove('game-mode');state=null;show('game',false);show('finish',false);show('setup',true);try{window.scrollTo(0,0);}catch(_){}}
 $('backToSetup').addEventListener('click',()=>{if(confirm('Rozpocząć nową grę? Obecny wynik przepadnie.'))reset();});
 $('playAgain').addEventListener('click',reset);
 
