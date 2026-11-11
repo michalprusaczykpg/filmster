@@ -361,7 +361,7 @@ function newRound(){stopClocks();if(state.index>=state.rounds){endGame();return;
  $('countdownStart').disabled=false;show('countdownStart',true);show('pauseTimer',false);$('pauseTimer').textContent='⏸ Pauza';show('result',false);$('result').classList.remove('good','bad');$('bonus').textContent='+1 pkt — zgadnięty tytuł / film';$('nextRound').textContent=state.index+1===state.rounds?'Zobacz wyniki 🏆':'Następna runda →';
  renderClock();renderTimeline();
 }
-function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();const player=activePlayer(),song=state.deck[state.index],previousCards=[...player.timeline];
+function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClocks();/* Keep Spotify playing between rounds: pausing here can make iPhone disappear from Spotify Connect. */const player=activePlayer(),song=state.deck[state.index],previousCards=[...player.timeline];
  const correct=state.choice!==null&&validPlacement(previousCards,state.choice,song.year);
  if(correct){player.timeline.splice(state.choice,0,song);player.score++;state.newlyAdded=song;}
  state.phase='done';show('countdownStart',false);show('pauseTimer',false);$('clockLabel').textContent=timedOut?'⏰ Koniec czasu — odsłaniamy kartę':'Karta odkryta';
@@ -373,9 +373,10 @@ function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClock
  $('resultDescription').textContent=correct
    ?(ties?'✅ Ten sam rok co na istniejącej karcie — poprawny przedział, +1 punkt!':'Karta trafia na Twoją oś czasu.')
    :`Poprawne miejsce: ${placementHint(previousCards,song.year)}. Ta karta nie trafia na oś czasu.`;
+ if(getSpotifyMode()==='premium'&&window.FilmsterSpotify?.isConnected()&&!window.FilmsterSpotify.isManualRound())$('clockLabel').textContent+=' · Spotify działa do następnej rundy';
  $('result').classList.toggle('good',correct);$('result').classList.toggle('bad',!correct);show('result',true);renderTimeline();
 }
-function endGame(){stopClocks();show('game',false);show('finish',true);const ranking=[...state.players].sort((a,b)=>b.score-a.score);const best=ranking[0].score;const winners=ranking.filter(p=>p.score===best).map(p=>p.name);
+function endGame(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();show('game',false);show('finish',true);const ranking=[...state.players].sort((a,b)=>b.score-a.score);const best=ranking[0].score;const winners=ranking.filter(p=>p.score===best).map(p=>p.name);
  $('winner').textContent=winners.length>1?'Remis: '+winners.join(', ')+' 🎉':'Wygrywa '+winners[0]+'! 🎉';$('finalScores').innerHTML=ranking.map((p,i)=>`<div><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':'🎵'} ${escapeHtml(p.name)}</span><b>${p.score} pkt · ${p.timeline.length} kart</b></div>`).join('');}
 $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names').value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,8);if(!names.length){alert('Wpisz przynajmniej jednego gracza.');return;}
  const pool=shuffle([...selectedSongs()]);if(pool.length<2){alert('Zaznacz przynajmniej jeden zbiór piosenek.');return;}
@@ -417,4 +418,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=21"></script></body></html>
+</script><script src="./spotify.js?v=22"></script></body></html>
