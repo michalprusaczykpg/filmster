@@ -12,6 +12,10 @@
   del(k){try{localStorage.removeItem('filmster-spotify-'+k)}catch(_){}}
  };
  let manual=false, startedOnSpotify=false;
+ let lastPlayedUri=null;
+ let mutedState=null;
+ let pauseDuringBreak=false;
+ let betweenRoundTask=Promise.resolve();
  const trackCache=new Map();
  const albumCache=new Map();
  const apiLog=[];
@@ -149,6 +153,7 @@
     const item=player?.item;
     if(player?.is_playing===true && (item?.uri===trackUri||item?.id===id||item?.linked_from?.id===id)){
      startedOnSpotify=true;
+     lastPlayedUri=trackUri;
      return {verified:true,device:player?.device?.name||deviceName};
     }
     if(!player?.device)reason='Spotify nie pokazuje aktywnego odtwarzacza.';
@@ -177,8 +182,75 @@
    return null;
   }
  }
+ async function restoreMutedVolume(){
+  // Never discard the original level if restoring fails.
+  const saved=mutedState||(
+   prefs.get('restore-volume') && prefs.get('restore-device-id')
+    ?{volume:Number(prefs.get('restore-volume')),id:prefs.get('restore-device-id')}
+    :null
+  );
+  if(!saved)return;
+  if(!Number.isInteger(saved.volume)||saved.volume<0||saved.volume>100){
+   mutedState=null;prefs.del('restore-volume');prefs.del('restore-device-id');return;
+  }
+  const qs=new URLSearchParams({volume_percent:String(saved.volume),device_id:saved.id});
+  await spotifyApi('/me/player/volume?'+qs,{method:'PUT'});
+  mutedState=null;
+  prefs.del('restore-volume');prefs.del('restore-device-id');
+ }
+ async function stopBetweenRoundsImpl(){
+  if(!isConnected()||!startedOnSpotify)return {mode:'none'};
+  let current=null;
+  try{current=await spotifyApi('/me/player');}
+  catch(e){console.info('Spotify playback check:',e.message)}
+  if(!current?.device){startedOnSpotify=false;return {mode:'unavailable'};}
+  const currentId=current.item?.uri||'';
+  if(lastPlayedUri&&currentId&&currentId!==lastPlayedUri
+    &&current.item?.linked_from?.uri!==lastPlayedUri){
+   // The listener switched music outside FILMSTER — do not alter their playback.
+   startedOnSpotify=false;return {mode:'other-track'};
+  }
+  if(current.is_playing===false){startedOnSpotify=false;return {mode:'already-paused'};}
+  const device=current.device;
+  const vol=device.volume_percent;
+  if(device.supports_volume!==false && Number.isInteger(vol)&&vol>0&&vol<=100){
+   try{
+    const qs=new URLSearchParams({volume_percent:'0'});
+    if(device.id)qs.set('device_id',device.id);
+    await spotifyApi('/me/player/volume?'+qs,{method:'PUT'});
+    // The 204 result alone is not evidence of muting; confirm player volume.
+    const updated=await spotifyApi('/me/player');
+    if(updated?.device?.volume_percent===0){
+     mutedState={volume:vol,id:device.id||''};
+     prefs.set('restore-volume',String(vol));
+     prefs.set('restore-device-id',device.id||'');
+     return {mode:'muted'};
+    }
+    // Spotify silently ignored volume command: restore original volume if possible.
+    await spotifyApi('/me/player/volume?'+new URLSearchParams({volume_percent:String(vol),...(device.id?{device_id:device.id}:{})}),{method:'PUT'}).catch(()=>{});
+   }catch(e){console.info('Spotify volume unavailable:',e.message)}
+  }
+  // On devices without API volume support, silence requires real pause.
+  // This can let iOS remove the iPhone from Spotify Connect while backgrounded.
+  try{
+   const qs=device.id?'?device_id='+encodeURIComponent(device.id):'';
+   await spotifyApi('/me/player/pause'+qs,{method:'PUT'});
+   pauseDuringBreak=true;
+   startedOnSpotify=false;
+   return {mode:'paused'};
+  }catch(e){
+   console.info('Spotify pause between rounds:',e.message);
+   return {mode:'pause-failed',message:e.message};
+  }
+ }
+ function stopBetweenRounds(){
+  betweenRoundTask=betweenRoundTask.catch(()=>{}).then(stopBetweenRoundsImpl);
+  return betweenRoundTask;
+ }
  async function play(song){
   if(!isConnected())throw new Error('Brak autoryzacji Spotify.');
+  // Do not race a late pause/mute request from the previous answer.
+  await betweenRoundTask.catch(()=>{});
   const uri=await resolveTrack(song);
   let {list}=await playbackDevices();
   let device=selectAndRemember(list);
@@ -210,8 +282,18 @@
     return {verified:false,device:selectedName(d),message:'Spotify odrzuciło próbę uruchomienia utworu z albumu: '+error.message};
    }
   };
+  const withVolumeRestored=async result=>{
+   if(!result.verified)return result;
+   try{
+    await restoreMutedVolume();
+    pauseDuringBreak=false;
+    return result;
+   }catch(error){
+    return {verified:false,device:result.device,message:'Spotify uruchomiło piosenkę, ale nie mogę przywrócić głośności: '+error.message};
+   }
+  };
   try{
-   return await run(device,true);
+   return await withVolumeRestored(await run(device,true));
   }catch(error){
    if(error.status!==404)throw error;
   }
@@ -224,7 +306,7 @@
   if(saved&&!attempts.some(d=>d?.id===saved))attempts.push({id:saved,name:prefs.get('device-name')||'zapisane urządzenie',is_active:false});
   let lastError=null;
   for(const candidate of attempts){
-   try{return await run(candidate,!!candidate);}
+   try{return await withVolumeRestored(await run(candidate,!!candidate));}
    catch(error){lastError=error;if(error.status!==404)throw error;}
   }
   throw new Error('Spotify HTTP 404: brak aktywnego urządzenia. Otwórz Spotify na iPhonie, włącz dowolną piosenkę i wróć do FILMSTER. '+(lastError?.message||''));
@@ -310,9 +392,14 @@
  }
 
  async function pauseIfPlaying(){
-  if(!startedOnSpotify)return;
-  startedOnSpotify=false;
-  try{await spotifyApi('/me/player/pause',{method:'PUT'});}catch(e){console.info('Spotify pause:',e.message)}
+  await betweenRoundTask.catch(()=>{});
+  if(startedOnSpotify){
+   try{await spotifyApi('/me/player/pause',{method:'PUT'});}
+   catch(e){console.info('Spotify pause:',e.message)}
+  }
+  startedOnSpotify=false;lastPlayedUri=null;pauseDuringBreak=false;
+  try{await restoreMutedVolume();}
+  catch(e){console.info('Spotify volume restoration:',e.message)}
  }
  function isConnected(){return !!(prefs.get('client-id')&&(store.get('access-token')||store.get('refresh-token')));}
  async function handleCallback(){
@@ -330,11 +417,16 @@
  }
  function disconnect(){
   ['access-token','expiry','refresh-token','scopes','verifier','state'].forEach(k=>store.del(k));['oauth-state','oauth-verifier','oauth-since'].forEach(k=>prefs.del(k));
+  // Restore volume before clearing authorization if FILMSTER muted a device.
+  restoreMutedVolume().catch(e=>console.info('Volume restore on disconnect:',e.message));
   prefs.del('device-id');prefs.del('device-name');prefs.del('device-preference');trackCache.clear();albumCache.clear();
-  startedOnSpotify=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
+  startedOnSpotify=false;lastPlayedUri=null;pauseDuringBreak=false;status('Rozłączono konto Spotify. Wciąż możesz otwierać utwory ręcznie.');
  }
- function setManualRound(b){manual=!!b;}
- const spotifyBridge={isConnected,hasDevice:()=>!!prefs.get('device-id'),isManualRound:()=>manual,setManualRound,play,pauseIfPlaying,diagnose,activateDevice,prime};
+ function setManualRound(b){
+  manual=!!b;
+  if(manual)betweenRoundTask.then(()=>restoreMutedVolume()).catch(e=>console.info('Spotify volume restore for DJ:',e.message));
+ }
+ const spotifyBridge={isConnected,hasDevice:()=>!!prefs.get('device-id'),isManualRound:()=>manual,setManualRound,play,stopBetweenRounds,pauseIfPlaying,diagnose,activateDevice,prime};
  window.FilmsterSpotify=spotifyBridge;
 
  // Short synthesized signals (not music recordings). Must be unlocked by a direct tap on iOS.
