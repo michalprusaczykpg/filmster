@@ -361,7 +361,7 @@ function newRound(){stopClocks();if(state.index>=state.rounds){endGame();return;
  $('countdownStart').disabled=false;show('countdownStart',true);show('pauseTimer',false);$('pauseTimer').textContent='⏸ Pauza';show('result',false);$('result').classList.remove('good','bad');$('bonus').textContent='+1 pkt — zgadnięty tytuł / film';$('nextRound').textContent=state.index+1===state.rounds?'Zobacz wyniki 🏆':'Następna runda →';
  renderClock();renderTimeline();
 }
-function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClocks();/* Keep Spotify playing between rounds: pausing here can make iPhone disappear from Spotify Connect. */const player=activePlayer(),song=state.deck[state.index],previousCards=[...player.timeline];
+function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClocks();const player=activePlayer(),song=state.deck[state.index],previousCards=[...player.timeline];
  const correct=state.choice!==null&&validPlacement(previousCards,state.choice,song.year);
  if(correct){player.timeline.splice(state.choice,0,song);player.score++;state.newlyAdded=song;}
  state.phase='done';show('countdownStart',false);show('pauseTimer',false);$('clockLabel').textContent=timedOut?'⏰ Koniec czasu — odsłaniamy kartę':'Karta odkryta';
@@ -373,7 +373,23 @@ function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClock
  $('resultDescription').textContent=correct
    ?(ties?'✅ Ten sam rok co na istniejącej karcie — poprawny przedział, +1 punkt!':'Karta trafia na Twoją oś czasu.')
    :`Poprawne miejsce: ${placementHint(previousCards,song.year)}. Ta karta nie trafia na oś czasu.`;
- if(getSpotifyMode()==='premium'&&window.FilmsterSpotify?.isConnected()&&!window.FilmsterSpotify.isManualRound())$('clockLabel').textContent+=' · Spotify działa do następnej rundy';
+ if(getSpotifyMode()==='premium'&&window.FilmsterSpotify?.isConnected()&&!window.FilmsterSpotify.isManualRound()){
+   const roundState=state,roundIndex=state.index;
+   $('clockLabel').textContent+=' · Zatrzymuję muzykę…';
+   // Do not await: the player must still see the answer immediately.
+   window.FilmsterSpotify.stopBetweenRounds().then(result=>{
+     if(state!==roundState||state.phase!=='done'||state.index!==roundIndex)return;
+     const label=timedOut?'⏰ Koniec czasu — odsłaniamy kartę':'Karta odkryta';
+     if(result.mode==='muted')$('clockLabel').textContent=label+' · 🔇 Muzyka wyciszona';
+     else if(result.mode==='paused'||result.mode==='already-paused')$('clockLabel').textContent=label+' · ⏸ Muzyka wstrzymana';
+     else if(result.mode==='other-track')$('clockLabel').textContent=label+' · Spotify zmieniło utwór poza grą';
+     else if(result.mode==='pause-failed')$('clockLabel').textContent=label+' · ⚠️ Nie można zatrzymać Spotify';
+     else $('clockLabel').textContent=label;
+   }).catch(error=>{
+     if(state===roundState&&state.phase==='done'&&state.index===roundIndex)
+       $('clockLabel').textContent+=' · ⚠️ Spotify: '+error.message;
+   });
+ }
  $('result').classList.toggle('good',correct);$('result').classList.toggle('bad',!correct);show('result',true);renderTimeline();
 }
 function endGame(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();show('game',false);show('finish',true);const ranking=[...state.players].sort((a,b)=>b.score-a.score);const best=ranking[0].score;const winners=ranking.filter(p=>p.score===best).map(p=>p.name);
@@ -418,4 +434,4 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{}));
 }
 
-</script><script src="./spotify.js?v=22"></script></body></html>
+</script><script src="./spotify.js?v=23"></script></body></html>
