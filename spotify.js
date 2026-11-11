@@ -244,7 +244,12 @@
   }
  }
  function stopBetweenRounds(){
-  betweenRoundTask=betweenRoundTask.catch(()=>{}).then(stopBetweenRoundsImpl);
+  // Kept for compatibility with a previously cached page.
+  // Never mute or pause between rounds: iPhone Spotify Connect can disappear after pause.
+  betweenRoundTask=betweenRoundTask.catch(()=>{}).then(async()=>{
+   try{await restoreMutedVolume();}catch(e){console.info('Restore previous FILMSTER volume:',e.message)}
+   return {mode:'continuing'};
+  });
   return betweenRoundTask;
  }
  async function play(song){
