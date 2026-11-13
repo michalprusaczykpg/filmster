@@ -429,9 +429,9 @@ function placementHint(cards,year){
  if(idx<0)return 'po roku '+cards[cards.length-1].year;
  return 'między '+cards[idx-1].year+' a '+cards[idx].year;
 }
-function newRound(){stopClocks();if(state.index>=state.rounds){endGame();return;}
+function newRound(){stopClocks();if(state.index>=state.rounds*state.players.length){endGame();return;}
  const s=state.deck[state.index];const pack=PACKS[s.pack];state.choice=null;state.phase='ready';state.bonus=false;state.newlyAdded=null;remainingMs=state.seconds*1000;
- $('roundLabel').textContent='Runda '+(state.index+1)+' z '+state.rounds;
+ $('roundLabel').textContent='Runda '+(Math.floor(state.index/state.players.length)+1)+' z '+state.rounds;
  $('activeLabel').textContent='🎤 '+activePlayer().name;
  $('packLabel').textContent=pack.icon+' '+pack.label;
  $('spotifyLink').href=s.spotifyId
@@ -451,7 +451,7 @@ function newRound(){stopClocks();if(state.index>=state.rounds){endGame();return;
  $('clockLabel').textContent=(getSpotifyMode()==='premium'&&window.FilmsterSpotify&&window.FilmsterSpotify.isConnected())
   ?'Spotify połączone — naciśnij START, aby spróbować uruchomić piosenkę.'
   :'Włącz piosenkę ręcznie w Spotify (tryb DJ) lub najpierw połącz Spotify Premium.';
- $('countdownStart').disabled=false;show('countdownStart',true);show('pauseTimer',false);$('pauseTimer').textContent='⏸ Pauza';show('result',false);$('result').classList.remove('good','bad');$('bonus').textContent='+1 pkt — zgadnięty tytuł / film';$('nextRound').textContent=state.index+1===state.rounds?'Zobacz wyniki 🏆':'Następna runda →';
+ $('countdownStart').disabled=false;show('countdownStart',true);show('pauseTimer',false);$('pauseTimer').textContent='⏸ Pauza';show('result',false);$('result').classList.remove('good','bad');$('bonus').textContent='+1 pkt — zgadnięty tytuł / film';$('nextRound').textContent=state.index+1===state.rounds*state.players.length?'Zobacz wyniki 🏆':(state.index%state.players.length===state.players.length-1?'Następna runda →':'Następny gracz →');
  renderClock();renderTimeline();
 }
 function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClocks();const player=activePlayer(),song=state.deck[state.index],previousCards=[...player.timeline];
@@ -473,7 +473,7 @@ function endGame(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify
  $('winner').textContent=winners.length>1?'Remis: '+winners.join(', ')+' 🎉':'Wygrywa '+winners[0]+'! 🎉';$('finalScores').innerHTML=ranking.map((p,i)=>`<div><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':'🎵'} ${escapeHtml(p.name)}</span><b>${p.score} pkt · ${p.timeline.length} kart</b></div>`).join('');}
 $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names').value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,8);if(!names.length){alert('Wpisz przynajmniej jednego gracza.');return;}
  const pool=shuffle([...selectedSongs()]);if(pool.length<2){alert('Zaznacz przynajmniej jeden zbiór piosenek.');return;}
- const starter=pool.pop();state={players:names.map(name=>({name,score:0,timeline:[starter]})),deck:pool,rounds:Math.min(Number($('rounds').value),pool.length),seconds:Number($('seconds').value),index:0,phase:'ready',choice:null,bonus:false,newlyAdded:null};
+ const starter=pool.pop();state={players:names.map(name=>({name,score:0,timeline:[starter]})),deck:pool,rounds:Math.min(Number($('rounds').value),Math.floor(pool.length/names.length)),seconds:Number($('seconds').value),index:0,phase:'ready',choice:null,bonus:false,newlyAdded:null};
  show('setup',false);show('finish',false);show('game',true);document.body.classList.add('game-mode');newRound();try{window.scrollTo(0,0);}catch(_){}
 });
 $('countdownStart').addEventListener('click',countdown);
