@@ -158,7 +158,7 @@ body.game-mode #game .spotify-tools-secondary{margin-top:16px;padding-top:8px}
   </div>
   <div class="grid">
     <div class="field"><label for="names">Imiona graczy (oddziel przecinkami)</label><input id="names" type="text" value="Aga, Michał" maxlength="200" autocomplete="off"></div>
-    <div class="field"><label for="rounds">Liczba rund</label><select id="rounds"><option value="10">10 rund</option><option value="15" selected>15 rund</option><option value="20">20 rund</option><option value="30">30 rund</option><option value="50">50 rund</option></select></div>
+    <div class="field"><label for="rounds">Liczba rund</label><select id="rounds"><option value="5">5 rund</option><option value="10">10 rund</option><option value="15" selected>15 rund</option><option value="20">20 rund</option><option value="30">30 rund</option><option value="50">50 rund</option></select></div>
     <div class="field"><label for="seconds">Czas na odpowiedź</label><select id="seconds"><option value="0">Bez limitu</option><option value="20">20 sekund</option><option value="30">30 sekund</option><option value="45" selected>45 sekund</option><option value="60">60 sekund</option><option value="90">90 sekund</option></select></div>
     <div class="field"><label>Wybrane piosenki</label><div class="pill" id="selectedCount">101 piosenek</div><div class="small" style="margin-top:7px">Losowanie bez powtórek w tej samej grze.</div></div>
   </div>
@@ -213,7 +213,7 @@ body.game-mode #game .spotify-tools-secondary{margin-top:16px;padding-top:8px}
       <div id="resultSong" class="songline"></div>
       <div id="resultMovie" class="movie"></div>
       <p id="resultDescription"></p>
-      <div class="below"><button id="bonus" class="secondary">+1 pkt — dodatkowa poprawna odpowiedź</button><button id="nextRound" class="primary">Następna runda →</button></div>
+      <div class="below"><button id="bonusArtist" class="secondary">+1 pkt — autor / wykonawca</button><button id="bonusTitle" class="secondary">+1 pkt — tytuł piosenki / film</button><button id="nextRound" class="primary">Następna runda →</button></div>
     </div>
     <div class="spotify-tools-secondary" aria-label="Ustawienia opcjonalne">
       <details id="spotifyDeviceTools" class="install-card spotify-settings" style="margin:12px 0">
@@ -430,7 +430,7 @@ function placementHint(cards,year){
  return 'między '+cards[idx-1].year+' a '+cards[idx].year;
 }
 function newRound(){stopClocks();if(state.index>=state.rounds*state.players.length){endGame();return;}
- const s=state.deck[state.index];const pack=PACKS[s.pack];state.choice=null;state.phase='ready';state.bonus=false;state.newlyAdded=null;remainingMs=state.seconds*1000;
+ const s=state.deck[state.index];const pack=PACKS[s.pack];state.choice=null;state.phase='ready';state.bonusArtist=false;state.bonusTitle=false;state.newlyAdded=null;remainingMs=state.seconds*1000;
  $('roundLabel').textContent='Runda '+(Math.floor(state.index/state.players.length)+1)+' z '+state.rounds;
  $('activeLabel').textContent='🎤 '+activePlayer().name;
  $('packLabel').textContent=pack.icon+' '+pack.label;
@@ -451,7 +451,7 @@ function newRound(){stopClocks();if(state.index>=state.rounds*state.players.leng
  $('clockLabel').textContent=(getSpotifyMode()==='premium'&&window.FilmsterSpotify&&window.FilmsterSpotify.isConnected())
   ?'Spotify połączone — naciśnij START, aby spróbować uruchomić piosenkę.'
   :'Włącz piosenkę ręcznie w Spotify (tryb DJ) lub najpierw połącz Spotify Premium.';
- $('countdownStart').disabled=false;show('countdownStart',true);show('pauseTimer',false);$('pauseTimer').textContent='⏸ Pauza';show('result',false);$('result').classList.remove('good','bad');$('bonus').textContent='+1 pkt — zgadnięty tytuł / film';$('nextRound').textContent=state.index+1===state.rounds*state.players.length?'Zobacz wyniki 🏆':(state.index%state.players.length===state.players.length-1?'Następna runda →':'Następny gracz →');
+ $('countdownStart').disabled=false;show('countdownStart',true);show('pauseTimer',false);$('pauseTimer').textContent='⏸ Pauza';show('result',false);$('result').classList.remove('good','bad');$('bonusArtist').textContent='+1 pkt — autor / wykonawca';$('bonusTitle').textContent='+1 pkt — tytuł piosenki / film';$('nextRound').textContent=state.index+1===state.rounds*state.players.length?'Zobacz wyniki 🏆':(state.index%state.players.length===state.players.length-1?'Następna runda →':'Następny gracz →');
  renderClock();renderTimeline();
 }
 function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClocks();const player=activePlayer(),song=state.deck[state.index],previousCards=[...player.timeline];
@@ -473,7 +473,7 @@ function endGame(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify
  $('winner').textContent=winners.length>1?'Remis: '+winners.join(', ')+' 🎉':'Wygrywa '+winners[0]+'! 🎉';$('finalScores').innerHTML=ranking.map((p,i)=>`<div><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':'🎵'} ${escapeHtml(p.name)}</span><b>${p.score} pkt · ${p.timeline.length} kart</b></div>`).join('');}
 $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names').value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,8);if(!names.length){alert('Wpisz przynajmniej jednego gracza.');return;}
  const pool=shuffle([...selectedSongs()]);if(pool.length<2){alert('Zaznacz przynajmniej jeden zbiór piosenek.');return;}
- const starter=pool.pop();state={players:names.map(name=>({name,score:0,timeline:[starter]})),deck:pool,rounds:Math.min(Number($('rounds').value),Math.floor(pool.length/names.length)),seconds:Number($('seconds').value),index:0,phase:'ready',choice:null,bonus:false,newlyAdded:null};
+ const starter=pool.pop();state={players:names.map(name=>({name,score:0,timeline:[starter]})),deck:pool,rounds:Math.min(Number($('rounds').value),Math.floor(pool.length/names.length)),seconds:Number($('seconds').value),index:0,phase:'ready',choice:null,bonusArtist:false,bonusTitle:false,newlyAdded:null};
  show('setup',false);show('finish',false);show('game',true);document.body.classList.add('game-mode');newRound();try{window.scrollTo(0,0);}catch(_){}
 });
 $('countdownStart').addEventListener('click',countdown);
@@ -487,7 +487,7 @@ $('switchToDjMode').addEventListener('click',()=>{$('spotifyMode').value='free';
 $('pauseTimer').addEventListener('click',pauseTimer);
 $('timeline').addEventListener('click',ev=>{const element=ev.target.closest('[data-slot]');if(!element||!state||!['playing','paused'].includes(state.phase))return;state.choice=Number(element.dataset.slot);renderTimeline();});
 $('confirmPosition').addEventListener('click',()=>{if(!state||!['playing','paused'].includes(state.phase)||state.choice===null)return;finishAnswer(false);});
-$('bonus').addEventListener('click',()=>{if(!state||state.phase!=='done')return;const player=activePlayer();state.bonus=!state.bonus;player.score+=state.bonus?1:-1;$('bonus').textContent=state.bonus?'✓ Bonus przyznany (+1 pkt) · cofnij':'+1 pkt — zgadnięty tytuł / film';renderPlayers();});
+for(const [id,key,label] of [['bonusArtist','bonusArtist','autor / wykonawca'],['bonusTitle','bonusTitle','tytuł piosenki / film']]){$(id).addEventListener('click',()=>{if(!state||state.phase!=='done')return;const player=activePlayer();state[key]=!state[key];player.score+=state[key]?1:-1;$(id).textContent=state[key]?'✓ +1 pkt — '+label+' · cofnij':'+1 pkt — '+label;renderPlayers();});}
 $('nextRound').addEventListener('click',()=>{if(!state||state.phase!=='done')return;state.index++;newRound();try{$('game').scrollIntoView({behavior:'smooth',block:'start'});}catch(_){}});
 function reset(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();document.body.classList.remove('game-mode');state=null;show('game',false);show('finish',false);show('setup',true);try{window.scrollTo(0,0);}catch(_){}}
 $('backToSetup').addEventListener('click',()=>{if(confirm('Rozpocząć nową grę? Obecny wynik przepadnie.'))reset();});
@@ -499,7 +499,7 @@ function loadOptions(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)|
  if(typeof d.names==='string')$('names').value=d.names.slice(0,200);
  if(['premium','free'].includes(d.spotifyMode))$('spotifyMode').value=d.spotifyMode;
  if(['all','stas','ignas','shared'].includes(d.kidsAudience))$('kidsAudience').value=d.kidsAudience;
- if(['10','15','20','30','50'].includes(d.rounds))$('rounds').value=d.rounds;
+ if(['5','10','15','20','30','50'].includes(d.rounds))$('rounds').value=d.rounds;
  if(['0','20','30','45','60','90'].includes(d.seconds))$('seconds').value=d.seconds;
  if(Array.isArray(d.packs)&&d.packs.length)document.querySelectorAll('.pack input').forEach(x=>x.checked=d.packs.includes(x.value));
 }catch(_){}}
