@@ -400,9 +400,9 @@ function cardHtml(song,added){return `<div class="time-card ${added?'added':''}"
 function renderPlayers(){if(!state)return;const active=activePlayer();$('scoreboard').innerHTML=state.players.map(p=>`<div class="person ${p===active?'current':''}"><span class="score-name">${escapeHtml(p.name)}</span><b>${p.score} pkt</b><span class="score-cards">· ${p.timeline.length} kart</span></div>`).join('');}
 function renderTimeline(){if(!state)return;const player=activePlayer();const cards=player.timeline;const editable=state.phase==='playing'||state.phase==='paused';
  $('timelineTitle').textContent='Oś czasu: '+player.name;$('cardsCount').textContent=cards.length+' '+(cards.length===1?'karta':cards.length<=4?'karty':'kart');
- $('timelineHelp').textContent=state.phase==='ready'||state.phase==='countdown'?'Naciśnij START, a potem wybierz miejsce.':'Wybierz +. Ten sam rok na sąsiedniej karcie też daje punkt.';
+ $('timelineHelp').textContent=state.phase==='ready'||state.phase==='countdown'?'Naciśnij START, a potem wybierz miejsce.':'Wybierz +. Przy powtarzającym się roku wstaw kartę nad lub pod całą grupą.';
  let h='';for(let i=0;i<=cards.length;i++){
-  if(state.phase!=='done'){
+  if(state.phase!=='done'&&!(i>0&&i<cards.length&&cards[i-1].year===cards[i].year)){
    const lower=i===0?'początkiem':String(cards[i-1].year);const upper=i===cards.length?'końcem':String(cards[i].year);
    let label=i===0?`Rok ${upper} lub wcześniej`:i===cards.length?`Rok ${lower} lub później`:`Rok od ${lower} do ${upper} (włącznie)`;
    h+=`<button type="button" class="insert-slot ${state.choice===i?'selected':''}" data-slot="${i}" ${editable?'':'disabled'} aria-pressed="${state.choice===i}"><span class="plus">＋</span>${label}</button>`;
@@ -418,12 +418,13 @@ function validPlacement(cards,slot,year){
  const later=slot===cards.length?Infinity:cards[slot].year;
  // Both endpoints are inclusive: a track from 2021 earns a point
  // beside any 2021 card as long as the timeline remains sorted.
+ if(slot>0&&slot<cards.length&&cards[slot-1].year===cards[slot].year)return false;
  return year>=earlier&&year<=later;
 }
 function placementHint(cards,year){
  const options=[];
  for(let i=0;i<=cards.length;i++)if(validPlacement(cards,i,year))options.push(i);
- if(options.length>1)return 'przy kartach z roku '+year+' (każde miejsce zachowujące kolejność lat jest poprawne)';
+ if(options.length>1)return 'nad lub pod grupą kart z roku '+year+' (nie pomiędzy kartami z tego samego roku)';
  const idx=cards.findIndex(s=>s.year>year);
  if(idx===0)return 'przed rokiem '+cards[0].year;
  if(idx<0)return 'po roku '+cards[cards.length-1].year;
