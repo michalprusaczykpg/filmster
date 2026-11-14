@@ -393,7 +393,7 @@ function refreshSpotifyRoundNoteLabel(){
  $('countdownStart').textContent=auto?'▶ 3 · 2 · 1 · START + Spotify':'▶ 3 · 2 · 1 · START — tylko czas';
 }
 
-function pauseTimer(){if(!state||state.seconds===0)return;if(state.phase==='playing'){remainingMs=Math.max(0,deadline-Date.now());clearInterval(timer);timer=null;state.phase='paused';$('pauseTimer').textContent='▶ Wznów';$('clockLabel').textContent='Pauza';}else if(state.phase==='paused'){state.phase='playing';deadline=Date.now()+remainingMs;timer=setInterval(tick,130);$('pauseTimer').textContent='⏸ Pauza';$('clockLabel').textContent='Czas na ułożenie utworu na osi czasu';}renderTimeline();renderClock();}
+function pauseTimer(){if(!state||state.seconds===0)return;if(state.phase==='playing'){remainingMs=Math.max(0,deadline-Date.now());clearInterval(timer);timer=null;state.phase='paused';$('pauseTimer').textContent='▶ Wznów';$('clockLabel').textContent='Pauza';}else if(state.phase==='paused'){state.phase='playing';deadline=Date.now()+remainingMs;timer=setInterval(tick,130);$('pauseTimer').textContent='⏸ Pauza';$('clockLabel').textContent='Czas na ułożenie utworu na osi czasu';}renderTimeline();renderClock();saveGame();}
 function activePlayer(){return state.players[state.index%state.players.length];}
 function songLabel(song){return song.pack==='film'?(song.movie||song.title):song.title;}
 function cardHtml(song,added){return `<div class="time-card ${added?'added':''}"><div class="yr">${song.year}</div><div><div class="what">${escapeHtml(songLabel(song))}</div><div class="who">${escapeHtml(song.title)} — ${escapeHtml(song.artist)}</div></div></div>`;}
@@ -452,7 +452,7 @@ function newRound(){stopClocks();if(state.index>=state.rounds*state.players.leng
   ?'Spotify połączone — naciśnij START, aby spróbować uruchomić piosenkę.'
   :'Włącz piosenkę ręcznie w Spotify (tryb DJ) lub najpierw połącz Spotify Premium.';
  $('countdownStart').disabled=false;show('countdownStart',true);show('pauseTimer',false);$('pauseTimer').textContent='⏸ Pauza';show('result',false);$('result').classList.remove('good','bad');$('bonusArtist').textContent='+1 pkt — autor / wykonawca';$('bonusTitle').textContent='+1 pkt — tytuł piosenki / film';$('nextRound').textContent=state.index+1===state.rounds*state.players.length?'Zobacz wyniki 🏆':(state.index%state.players.length===state.players.length-1?'Następna runda →':'Następny gracz →');
- renderClock();renderTimeline();
+ renderClock();renderTimeline();saveGame();
 }
 function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClocks();const player=activePlayer(),song=state.deck[state.index],previousCards=[...player.timeline];
  const correct=state.choice!==null&&validPlacement(previousCards,state.choice,song.year);
@@ -467,9 +467,9 @@ function finishAnswer(timedOut){if(!state||state.phase==='done')return;stopClock
    ?(ties?'✅ Ten sam rok co na istniejącej karcie — poprawny przedział, +1 punkt!':'Karta trafia na Twoją oś czasu.')
    :`Poprawne miejsce: ${placementHint(previousCards,song.year)}. Ta karta nie trafia na oś czasu.`;
  if(getSpotifyMode()==='premium'&&window.FilmsterSpotify?.isConnected()&&!window.FilmsterSpotify.isManualRound())$('clockLabel').textContent+=' · 🎵 Spotify gra dalej';
- $('result').classList.toggle('good',correct);$('result').classList.toggle('bad',!correct);show('result',true);renderTimeline();
+ $('result').classList.toggle('good',correct);$('result').classList.toggle('bad',!correct);show('result',true);renderTimeline();saveGame();
 }
-function endGame(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();document.body.classList.remove('game-mode');show('game',false);show('finish',true);const ranking=[...state.players].sort((a,b)=>b.score-a.score);const best=ranking[0].score;const winners=ranking.filter(p=>p.score===best).map(p=>p.name);
+function endGame(){clearSavedGame();stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();document.body.classList.remove('game-mode');show('game',false);show('finish',true);const ranking=[...state.players].sort((a,b)=>b.score-a.score);const best=ranking[0].score;const winners=ranking.filter(p=>p.score===best).map(p=>p.name);
  $('winner').textContent=winners.length>1?'Remis: '+winners.join(', ')+' 🎉':'Wygrywa '+winners[0]+'! 🎉';$('finalScores').innerHTML=ranking.map((p,i)=>`<div><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':'🎵'} ${escapeHtml(p.name)}</span><b>${p.score} pkt · ${p.timeline.length} kart</b></div>`).join('');}
 $('startGame').addEventListener('click',()=>{saveOptions();const names=$('names').value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,8);if(!names.length){alert('Wpisz przynajmniej jednego gracza.');return;}
  const pool=shuffle([...selectedSongs()]);if(pool.length<2){alert('Zaznacz przynajmniej jeden zbiór piosenek.');return;}
@@ -485,14 +485,45 @@ $('spotifyLink').addEventListener('click',()=>{
 });
 $('switchToDjMode').addEventListener('click',()=>{$('spotifyMode').value='free';if(window.FilmsterSpotify)window.FilmsterSpotify.setManualRound(true);syncSpotifyMode();saveOptions();$('countdownStart').disabled=false;});
 $('pauseTimer').addEventListener('click',pauseTimer);
-$('timeline').addEventListener('click',ev=>{const element=ev.target.closest('[data-slot]');if(!element||!state||!['playing','paused'].includes(state.phase))return;state.choice=Number(element.dataset.slot);renderTimeline();});
+$('timeline').addEventListener('click',ev=>{const element=ev.target.closest('[data-slot]');if(!element||!state||!['playing','paused'].includes(state.phase))return;state.choice=Number(element.dataset.slot);renderTimeline();saveGame();});
 $('confirmPosition').addEventListener('click',()=>{if(!state||!['playing','paused'].includes(state.phase)||state.choice===null)return;finishAnswer(false);});
-for(const [id,key,label] of [['bonusArtist','bonusArtist','autor / wykonawca'],['bonusTitle','bonusTitle','tytuł piosenki / film']]){$(id).addEventListener('click',()=>{if(!state||state.phase!=='done')return;const player=activePlayer();state[key]=!state[key];player.score+=state[key]?1:-1;$(id).textContent=state[key]?'✓ +1 pkt — '+label+' · cofnij':'+1 pkt — '+label;renderPlayers();});}
+for(const [id,key,label] of [['bonusArtist','bonusArtist','autor / wykonawca'],['bonusTitle','bonusTitle','tytuł piosenki / film']]){$(id).addEventListener('click',()=>{if(!state||state.phase!=='done')return;const player=activePlayer();state[key]=!state[key];player.score+=state[key]?1:-1;$(id).textContent=state[key]?'✓ +1 pkt — '+label+' · cofnij':'+1 pkt — '+label;renderPlayers();saveGame();});}
 $('nextRound').addEventListener('click',()=>{if(!state||state.phase!=='done')return;state.index++;newRound();try{$('game').scrollIntoView({behavior:'smooth',block:'start'});}catch(_){}});
-function reset(){stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();document.body.classList.remove('game-mode');state=null;show('game',false);show('finish',false);show('setup',true);try{window.scrollTo(0,0);}catch(_){}}
+function reset(){clearSavedGame();stopClocks();if(window.FilmsterSpotify)window.FilmsterSpotify.pauseIfPlaying();document.body.classList.remove('game-mode');state=null;show('game',false);show('finish',false);show('setup',true);try{window.scrollTo(0,0);}catch(_){}}
 $('backToSetup').addEventListener('click',()=>{if(confirm('Rozpocząć nową grę? Obecny wynik przepadnie.'))reset();});
 $('playAgain').addEventListener('click',reset);
 
+const GAME_KEY='filmster-game-v1';
+function clearSavedGame(){try{localStorage.removeItem(GAME_KEY);}catch(_){}}
+function saveGame(){if(!state)return;try{
+ const result=state.phase==='done'?{
+ title:$('resultTitle').textContent,year:$('resultYear').textContent,
+ song:$('resultSong').textContent,movie:$('resultMovie').textContent,
+ description:$('resultDescription').textContent,good:$('result').classList.contains('good')
+ }:null;
+ localStorage.setItem(GAME_KEY,JSON.stringify({state,result}));
+}catch(_){}}
+function restoreGame(){try{
+ const saved=JSON.parse(localStorage.getItem(GAME_KEY)||'null');if(!saved)return;
+ const old=saved.state;
+ if(!old||!Array.isArray(old.players)||!old.players.length||!Array.isArray(old.deck)||!old.deck[old.index]||old.index>=old.rounds*old.players.length){clearSavedGame();return;}
+ state=old;const phase=old.phase,choice=old.choice,artist=!!old.bonusArtist,title=!!old.bonusTitle;
+ state.phase='ready';newRound();
+ state.choice=choice;state.bonusArtist=artist;state.bonusTitle=title;
+ if(phase==='done'&&saved.result){
+  state.phase='done';$('resultTitle').textContent=saved.result.title;
+  $('resultYear').textContent=saved.result.year;$('resultSong').textContent=saved.result.song;
+  $('resultMovie').textContent=saved.result.movie;$('resultDescription').textContent=saved.result.description;
+  $('result').classList.toggle('good',!!saved.result.good);$('result').classList.toggle('bad',!saved.result.good);
+  $('bonusArtist').textContent=artist?'✓ +1 pkt — autor / wykonawca · cofnij':'+1 pkt — autor / wykonawca';
+  $('bonusTitle').textContent=title?'✓ +1 pkt — tytuł piosenki / film · cofnij':'+1 pkt — tytuł piosenki / film';
+  show('countdownStart',false);show('pauseTimer',false);show('result',true);
+ }else if(['playing','paused','countdown'].includes(phase)){
+  $('clockLabel').textContent='Gra przywrócona — naciśnij START, aby ponownie rozpocząć czas.';
+ }
+ show('setup',false);show('finish',false);show('game',true);document.body.classList.add('game-mode');
+ renderTimeline();saveGame();
+}catch(e){console.warn('Przywracanie gry:',e);clearSavedGame();}}
 const STORAGE_KEY='filmster-options-v1';
 function saveOptions(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({names:$('names').value,rounds:$('rounds').value,seconds:$('seconds').value,packs:checkedPacks(),spotifyMode:getSpotifyMode(),kidsAudience:$('kidsAudience').value}));}catch(_){}}
 function loadOptions(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(!d)return;
@@ -503,7 +534,7 @@ function loadOptions(){try{const d=JSON.parse(localStorage.getItem(STORAGE_KEY)|
  if(['0','20','30','45','60','90'].includes(d.seconds))$('seconds').value=d.seconds;
  if(Array.isArray(d.packs)&&d.packs.length)document.querySelectorAll('.pack input').forEach(x=>x.checked=d.packs.includes(x.value));
 }catch(_){}}
-loadOptions();syncSpotifyMode();
+loadOptions();syncSpotifyMode();restoreGame();
 $('spotifyMode').addEventListener('change',()=>{syncSpotifyMode();saveOptions();});
 for(const id of ['names','rounds','seconds'])$(id).addEventListener('change',saveOptions);
 document.querySelectorAll('.pack input').forEach(el=>el.addEventListener('change',saveOptions));
